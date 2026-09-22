@@ -1,0 +1,114 @@
+# ---------------------------------------------------------------------------
+# 311 reporting-correction — keep this repo small and cloneable.
+# The predecessor repo's .git reached 1.0 GB because data and figures were
+# committed. Data lives in Dropbox and is reached through symlinks in data/;
+# only data/README.md (provenance) is tracked.
+# ---------------------------------------------------------------------------
+
+# --- data: symlinks + local files, never the data itself --------------------
+data/*
+!data/README.md
+
+# --- model / pipeline outputs ----------------------------------------------
+output/
+outputs/
+results/
+figures/
+*.log
+
+# --- large or binary artifacts, anywhere ------------------------------------
+*.csv
+*.tsv
+*.geojson
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.gpkg
+*.parquet
+*.feather
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.nc
+*.zip
+*.gz
+*.tar
+*.7z
+
+# Posterior draws / MCMC traces
+*.netcdf
+*_trace.nc
+*_idata.nc
+*_posterior.*
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- R ----------------------------------------------------------------------
+.Rhistory
+.Rapp.history
+.RData
+.Rproj.user/
+*.Rproj
+
+# --- LaTeX / manuscript build ----------------------------------------------
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.out
+*.synctex.gz
+*.toc
+*.nav
+*.snm
+*.vrb
+
+# --- secrets / local config -------------------------------------------------
+.env
+.env.*
+*.key
+*.pem
+.claude/settings.local.json
+
+# --- macOS + Dropbox --------------------------------------------------------
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.dropbox
+.dropbox.attr
+.dropbox.cache
+Icon?
+*conflicted copy*
+
+# --- editors ----------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
