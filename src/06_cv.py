@@ -76,6 +76,7 @@ BUFFER_INNER = 600            # m, inner selection folds: the full buffer around
 BUFFER_SENS = [0, 2400]
 RIDGE_SURV = 1.0
 GTOL = 1e-4
+ALPHA_LIST = [0.1, 0.25, 0.5, 1.0, 2.0, 5.0]
 SEED = 0
 BETA_FIT_GRID = [0.3, 0.55, 0.8, 1.05, 1.3, 1.55]     # S2kfit candidates (must lie on 05's grid)
 WR_PRIMARY = "wR_pre24_naive_h600"
@@ -414,6 +415,23 @@ def main():
         print(f"  buffer {buf:>4} m: train share {g['n_train'].mean() / (len(v) * (1 - 1 / N_FOLDS)):.1%}   "
               f"S0 {s0.ll.sum() / s0.n.sum():.5f}   S2k {s2.ll.sum() / s2.n.sum():.5f}   Δ {(s2.ll.sum() - s0.ll.sum()) / s0.n.sum():+.5f}")
     summary["buffer_sensitivity"] = bs.groupby(["buffer", "spec"]).apply(lambda g: g.ll.sum() / g.n.sum()).unstack().round(6).to_dict()
+
+    # -------------------------------------------------------- alpha out of fold
+    print(f"\n[alpha] Gamma-shrinkage alpha chosen out of fold at h={H0}, tau={TAU0}")
+    arows = []
+    for a in ALPHA_LIST:
+        fa = fields(F, v, H0, TAU0, alpha=a)
+        for k in range(N_FOLDS):
+            te = fold == k; tr = buffered_train(v, te, BUFFER)
+            for spec in ["S0", "S2k"]:
+                sc, _ = fit_eval(spec, tr, te, fa, fe, y)
+                arows.append({"alpha": a, "fold": k, "spec": spec, **sc})
+    al = pd.DataFrame(arows); al.to_csv(os.path.join(CV, "alpha_sensitivity.csv"), index=False)
+    atab = al.groupby(["spec", "alpha"]).apply(lambda g: g.ll.sum() / g.n.sum()).unstack()
+    print(atab.round(5).to_string())
+    best_alpha = {spec: float(atab.loc[spec].idxmax()) for spec in atab.index}
+    print(f"  best alpha out of fold: {best_alpha}")
+    summary["alpha"] = {"table": atab.round(6).to_dict(), "best": best_alpha}
 
     _figures(agg, one_se, oof, y, blocks)
     with open(os.path.join(CV, "summary.json"), "w") as fh:

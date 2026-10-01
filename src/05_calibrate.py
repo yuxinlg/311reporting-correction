@@ -76,6 +76,7 @@ BETA_GRID = np.round(np.arange(-0.2, 2.0001, 0.05), 3)      # 45 points
 BOOT_GRID = np.round(np.arange(-0.2, 2.0001, 0.20), 3)      # 12 points, parabola-interpolated
 N_BOOT = 100
 BOOT_GTOL = 1e-3          # looser optimiser tolerance for the resamples (ll error << LR scale)
+REUSE_BOOTSTRAP = True    # load calib/bootstrap.csv if it already holds N_BOOT resamples (58 min to redo)
 ALPHA_LIST = [0.1, 0.25, 0.5, 1.0, 2.0, 5.0]
 ALPHA_ALT = 0.25          # second alpha at which the profile is also run
 N_PERM = 50
@@ -375,36 +376,41 @@ def main():
     summary["profile"] = prof.round(4).to_dict(orient="records")
 
     # ------------------------------------------------------------- bootstrap
-    print(f"\n[bootstrap] {N_BOOT} spatial block resamples at h={H0} (kernel w_R): S1' and the profile")
-    t0 = time.time()
     f = fits_h0["fields"]; den = f["den"]; num_k = fits_h0["num_k"]
-    X1, n1, _ = design(v, f["raw"], spline=False, extra={"wbar": f["wbar_k"]})
-    th1 = fits_h0["S1"][0]["theta"]
     full_prof = summarise_profile(BETA_GRID, fits_h0["profile_ll"])
-    boot_idx = [i for i, b in enumerate(BETA_GRID) if any(np.isclose(b, BOOT_GRID))]
-    theta_path = [fits_h0["profile_thetas"][i] for i in boot_idx]
-    # corrected numerator at the full-sample beta-hat, for an exact LR in each resample
-    o = accumulate_st(v[["x", "y"]].to_numpy(), v["t_days"].to_numpy(), ev["xy"], ev["t"], H0, [TAU0],
-                      {"m": np.exp(-full_prof["beta_hat"] * ev["wk"])}, src_tree=ev["tree"])
-    x_full, _ = shrunk_log(o[(TAU0, "m")], den, ALPHA)
-    X_full, _, _ = design(v, x_full)
-    th_full = fit(X_full, y)["theta"]
-    nb = blocks.max() + 1
-    brows = []
-    for r in range(N_BOOT):
-        draw = rng.integers(0, nb, nb)
-        w = np.bincount(draw, minlength=nb)[blocks].astype(float)
-        r1 = fit(X1, y, w=w, theta0=th1, gtol=BOOT_GTOL)
-        ib, ic = n1.index("loglam"), n1.index("wbar")
-        beta_s1 = -r1["theta"][ic] / r1["theta"][ib]
-        ll_b, _ = profile(v, y, den, num_k[:, boot_idx], BOOT_GRID, w=w, theta_path=theta_path, gtol=BOOT_GTOL)
-        s = summarise_profile(BOOT_GRID, ll_b)
-        ll_at_full = fit(X_full, y, w=w, theta0=th_full, gtol=BOOT_GTOL)["ll"]
-        brows.append({"rep": r, "beta_S1": beta_s1, "beta_prof": s["beta_hat"],
-                      "lr_at_full": max(2 * (s["ll_max"] - ll_at_full), 0.0)})
-        if (r + 1) % 20 == 0:
-            print(f"    {r + 1}/{N_BOOT} done ({time.time() - t0:.0f} s)")
-    boot = pd.DataFrame(brows); boot.to_csv(os.path.join(CAL, "bootstrap.csv"), index=False)
+    boot_path = os.path.join(CAL, "bootstrap.csv")
+    boot = pd.read_csv(boot_path) if (REUSE_BOOTSTRAP and os.path.exists(boot_path)) else None
+    if boot is not None and len(boot) == N_BOOT:
+        print(f"\n[bootstrap] reusing {N_BOOT} saved spatial block resamples from {os.path.relpath(boot_path, ROOT)}")
+    else:
+        print(f"\n[bootstrap] {N_BOOT} spatial block resamples at h={H0} (kernel w_R): S1' and the profile")
+        t0 = time.time()
+        X1, n1, _ = design(v, f["raw"], spline=False, extra={"wbar": f["wbar_k"]})
+        th1 = fits_h0["S1"][0]["theta"]
+        boot_idx = [i for i, b in enumerate(BETA_GRID) if any(np.isclose(b, BOOT_GRID))]
+        theta_path = [fits_h0["profile_thetas"][i] for i in boot_idx]
+        # corrected numerator at the full-sample beta-hat, for an exact LR in each resample
+        o = accumulate_st(v[["x", "y"]].to_numpy(), v["t_days"].to_numpy(), ev["xy"], ev["t"], H0, [TAU0],
+                          {"m": np.exp(-full_prof["beta_hat"] * ev["wk"])}, src_tree=ev["tree"])
+        x_full, _ = shrunk_log(o[(TAU0, "m")], den, ALPHA)
+        X_full, _, _ = design(v, x_full)
+        th_full = fit(X_full, y)["theta"]
+        nb = blocks.max() + 1
+        brows = []
+        for r in range(N_BOOT):
+            draw = rng.integers(0, nb, nb)
+            w = np.bincount(draw, minlength=nb)[blocks].astype(float)
+            r1 = fit(X1, y, w=w, theta0=th1, gtol=BOOT_GTOL)
+            ib, ic = n1.index("loglam"), n1.index("wbar")
+            beta_s1 = -r1["theta"][ic] / r1["theta"][ib]
+            ll_b, _ = profile(v, y, den, num_k[:, boot_idx], BOOT_GRID, w=w, theta_path=theta_path, gtol=BOOT_GTOL)
+            s = summarise_profile(BOOT_GRID, ll_b)
+            ll_at_full = fit(X_full, y, w=w, theta0=th_full, gtol=BOOT_GTOL)["ll"]
+            brows.append({"rep": r, "beta_S1": beta_s1, "beta_prof": s["beta_hat"],
+                          "lr_at_full": max(2 * (s["ll_max"] - ll_at_full), 0.0)})
+            if (r + 1) % 20 == 0:
+                print(f"    {r + 1}/{N_BOOT} done ({time.time() - t0:.0f} s)")
+        boot = pd.DataFrame(brows); boot.to_csv(boot_path, index=False)
     crit = float(np.quantile(boot["lr_at_full"], 0.95))
     recal = summarise_profile(BETA_GRID, fits_h0["profile_ll"], crit=crit / 2)
     summary["bootstrap"] = {

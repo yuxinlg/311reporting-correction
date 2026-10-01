@@ -1,3 +1,15 @@
+# Project status — updated 2026-10-01
+
+**2026-10-01 update.** `05` completed in full (controls, `summary.json`,
+figures), `06_cv.py` ran in full (65 min), `07_surface.py` and `08_figures.py`
+are written and run. Results and the paper configuration are in
+`notes/phase5_calibration.md`. Remaining: a final rerun of 05/06/07 at the
+CV-chosen configuration (h = 1200, τ = 240, α = 0.1) if the user wants the
+deliverable there; two-stage uncertainty over the saved posterior draws;
+location-scale ordinal check; leave-one-district-out. The text below is the
+2026-09-30 archive and remains accurate except where this paragraph says
+otherwise.
+
 # Project status — archived 2026-09-30 (end of session)
 
 Point-level 311 dumping correction calibrated to the Litter Index. Plan:
