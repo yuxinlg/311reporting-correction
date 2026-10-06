@@ -15,7 +15,7 @@ walkthrough in Chinese: every output file, every step, every number.
 | `src/03_field.py` | h chosen by a Spearman rule, τ checked by sweep + placebo, then every kernel sum the statistics need | 5 min | `fields/h*.npz`, `field_sweep.csv`, `placebo.csv`, `choices.json` |
 | `src/04_calibrate.py` | profile likelihood for β, block-bootstrap CI, −c/b check, torus-shift null, outage placebo, sensitivity rows | 10 min first run (8 worker processes), 2 min with caches | `calib/table1.csv`, `calib/summary.json`, `figures/fig1_*`, `fig2_*` |
 | `src/05_validate.py` | buffered spatially blocked 10-fold CV: raw vs corrected (β in-fold) | 13 min | `cv/table2.csv`, `cv/summary.json`, `figures/05_cv.png` |
-| `src/06_surface.py` | the 50 m corrected litter-index GeoTIFF for two dates | 30 s | `surface/*.tif`, `surface_cbg.csv`, `figures/fig3_maps.png` |
+| `src/06_surface.py` | the maps: 311 as filed (A) and corrected (B) as long-term rates for 2021–25 and 2022–23, the survey on its own (C), their agreement; appendix snapshot through the sigmoid | 30 s | `surface/dumping_*.tif`, `litter_survey.tif`, `litter_index_*.tif`, `surface_cbg.csv`, `figures/fig3_maps.png`, `A1_*`, `A2_*` |
 
 Headline (2026-10-05): β̂ = 0.86, 95% CI [0.63, 1.08]; the correction adds Δℓ = +610 in sample and
 +0.0137 ± 0.0042 log-likelihood per visit out of sample (9/10 spatial folds); torus-shift null p = 0.
@@ -41,7 +41,8 @@ patsy, rasterio, matplotlib. No JAX / NumPyro / statsmodels.
 - Table 2 `output/cv/table2.csv`: out-of-fold log-likelihood per visit, Somers' D,
   paired gain over the raw field, folds better, in-fold β range.
 - Fig 1 profile curves + bootstrap; Fig 2 E[rating | log λ̂] raw vs corrected;
-  Fig 3 maps of w_R, the corrected index, and the correction.
+  Fig 3 the three maps: 311 as filed (A), corrected (B), survey on its own (C);
+  appendix A1 the sigmoid snapshot, A2 the two-year window, correction factor, w_R.
 
 ## History
 

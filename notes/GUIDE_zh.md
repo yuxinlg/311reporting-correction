@@ -42,7 +42,7 @@ output/fields/h*.npz
    │  04_calibrate.py     用 survey 估 β，给 CI，做检验      ──►  output/calib/
    │  05_validate.py      留出一块地区不看，检验预测力       ──►  output/cv/
    ▼
-   │  06_surface.py       用 β̂ 画全城地图                     ──►  output/surface/
+   │  06_surface.py       三张图：311 原始、311 修正后、survey 自己   ──►  output/surface/
 ```
 
 重要的分工：**03 只做几何（kernel 求和），04 和 05 只做统计（回归）。** 03 把所有可能用到的求和一次算完存下来，04/05 就不用再碰坐标。这就是为什么 `fields/` 里的 npz 文件那么重要，也是它"存那么多列"的原因，后面详细讲。
@@ -153,12 +153,18 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 
 ### 2.6 `surface/`：06 的产出，最终地图
 
+三样东西，分开存，分开看：
+
 | 文件 | 内容 |
 |---|---|
-| `litter_index_2023-06-30.tif` | GeoTIFF，50 m 分辨率，4 个 band：`E_rating_corr`（修正后预测的 1–4 index）、`E_rating_raw`（不修正）、`log_lam_corr`、`log_lam_raw`。可以直接拖进 QGIS |
-| `litter_index_2025-12-31.tif` | 同上，但日期在 survey 之后，是 **extrapolation**，文件 tag 里标了 |
-| `surface_cbg.csv` | 每个街区的平均预测值 + 它 2022–23 实际的平均 rating，用来算吻合度 |
-| `summary.json` | 分位数、修正幅度、CBG Spearman |
+| `dumping_2021-2025.tif` | **A 和 B。** GeoTIFF，50 m，5 个 band：`rate_raw`（311 原样的举报率，每年每 1,000 人流 stop）、`rate_corr`（每条举报乘 exp(−β̂ w_R) 后的"真实"率）、`log_rel_raw` / `log_rel_corr`（相对全城平均的 log，画图用）、`correction_factor`（corr ÷ raw） |
+| `dumping_2022-2023.tif` | 同上，只用 survey 那两年的举报，和 survey 同期对照用 |
+| `litter_survey.tif` | **C。** 只用 survey：`rating_adj`（去掉 month 和 surveyor 效应后的 rating，kernel 平滑）、`rating_mean`（不去效应的平均）、`n_eff`（kernel 里有效 visit 数；< 10 的格子是 NaN） |
+| `litter_index_2023-06-30.tif`, `litter_index_2025-12-31.tif` | **附录。** 某日期前 120 天的 311 field 推过 sigmoid 得到的 E[rating]，4 个 band。回答的是"311 能多好地复现 survey"，不是"倾倒在哪" |
+| `surface_cbg.csv` | 每个街区上面所有 band 的平均 + 它 2022–23 实际平均 rating |
+| `summary.json` | 各窗口的全城率、分位数、修正幅度、A/B 与 C 的 Spearman |
+
+**A 和 B 的单位：** 每年每 1,000 个 SafeGraph 月均 stop 的举报数。全城平均 1.19（raw）。它是 relative risk 的形式，和 calibration 用的 field 一致。
 
 ### 2.7 `figures/`
 
@@ -169,7 +175,9 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 | `fig1_profile.png` | **ℓ(β) − ℓ(0) 曲线**（估 β 的全部信息）+ bootstrap 直方图 |
 | `fig2_linearisation.png` | rating 对 log field 的 S 形曲线，raw vs corrected |
 | `05_cv.png` | out-of-fold log-lik 随 h 的变化 + block 层面的 calibration |
-| `fig3_maps.png` | 三张地图：w_R、修正后 index、修正带来的差 |
+| `fig3_maps.png` | **主图。** (A) 311 原样，2021–25 平均；(B) 修正后；(C) survey 自己。A、B 同一色标 |
+| `A2_windows_and_correction.png` | 附录：2022–23 窗口的 A、B；修正系数 log(B/A) 地图；w_R 地图 |
+| `A1_rating_snapshot.png` | 附录：120 天 snapshot 推过 sigmoid 的 E[rating]，修正差，2025 extrapolation |
 
 ---
 
@@ -256,9 +264,17 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 - 在 test 上算每次 visit 的平均 log-likelihood。
 - 10 个 fold 配对比较 S2 − S0。
 
-### 3.6 Step 6：全城地图（`06_surface.py`）
+### 3.6 Step 6：三张地图（`06_surface.py`）
 
-在 support grid 的每个 50 m 格子上算 λ̂_β̂（β̂ = 0.86），用 Step 3 在 survey 上 fit 好的 g、κ、FE 平均值，算出 E[rating] = 1 + Σ_k P(rating ≥ k)，就是"如果 surveyor 来这里打分，期望打几分"。两个日期：2023-06-30 在 survey 期内；2025-12-31 在期外，是 extrapolation。
+**A：311 原样。** 把一个时间窗口（2021–2025 五年，或 2022–2023 两年）里的全部 dumping report 放到 support grid 上做 kernel 平滑，除以同样平滑的人流，再除以年数。单位是每年每 1,000 个 stop 的举报数。这是"居民报了多少"。
+
+**B：修正后。** 同样的 report，每条先乘 exp(−β̂·w_R)，β̂ = 0.86。爱举报的地方一条举报算不到一条，不爱举报的地方一条算一条多。这是"按全城平均举报倾向还原后应该有多少"，也就是我们对真实倾倒分布的最佳估计。B ÷ A 是修正系数地图。
+
+**C：survey 自己。** 只用 72,084 次 visit：先用一个 OLS 去掉 month 和 surveyor 的效应（它们解释了 rating 方差的 33%），再把调整后的 rating 在 visit 位置上用同样的 kernel 平滑。kernel 里有效 visit 少于 10 的格子留空（只有 1.5%）。这张图不含任何 311 信息。
+
+**为什么要分开：** A 和 B 是我们的产出，C 是独立的参照。如果 B 比 A 更像 C，修正就是朝对的方向走的。
+
+**附录：** 旧的做法是把某日期前 120 天的 311 field 推过 Step 3 的 sigmoid，得到 E[rating]（"如果 surveyor 来打分会打几分"）。它回答的是"311 能多好地复现 survey"，保留为附录对照（`A1_rating_snapshot.png`），不是主产出。
 
 ---
 
@@ -314,12 +330,24 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 
 **S1 和 S2 几乎一样好，怎么理解：** S1 是 S2 的线性近似，两者用了同一信息（field + w_R）。S2 的优势在于它的 β 有物理意义、可以用来画修正后的地图；S1 只能预测。
 
-### 4.5 Surface（`surface/summary.json`）
+### 4.5 三张地图（`surface/summary.json`，`fig3_maps.png`）
 
-- 2023-06-30：修正后 index 的 1% / 50% / 99% 分位是 1.08 / 1.26 / 2.01。全城大部分地方预测在 1.1–1.3，少数热点到 2。
-- 修正本身（corrected − raw）的 sd 是 0.09，极端地方 −0.20 到 +0.32 分。**修正不会重画地图，但会在边缘上有意义地移动。** `fig3_maps.png` 右图：红色 = 修正后更脏（举报率低的地方），蓝色 = 修正后更干净（举报率高的地方）。
-- 街区层面：修正后地图的街区平均和实际 2022–23 平均 rating 的 Spearman 是 0.71，不修正 0.68。
-- 2025 年底：0.74 / 0.70。日期几乎不影响，和 placebo 一致。
+| | 2021–2025（116,772 条） | 2022–2023（46,608 条） |
+|---|---|---|
+| 全城平均率，raw → corrected（每年每 1,000 stop） | 1.19 → 1.26 | 1.19 → 1.26 |
+| 格子率 p1 / p50 / p99，raw | 0.01 / 0.90 / 5.85 | 0.02 / 0.89 / 6.16 |
+| 格子率 p1 / p50 / p99，corrected | 0.01 / 0.89 / 8.62 | 0.02 / 0.86 / 8.84 |
+| 修正系数 B/A，p1 / p50 / p99 | 0.49 / 0.97 / 3.88 | 0.50 / 0.97 / 3.73 |
+| 街区层面与 C 的 Spearman，raw → corrected | 0.66 → 0.69 | 0.66 → 0.69 |
+| 街区层面与实际平均 rating 的 Spearman，raw → corrected | 0.68 → 0.72 | 0.68 → 0.71 |
+
+**怎么读：**
+- **修正系数**是最直观的一行：最爱举报的地方（p1）举报被打到一半，最不爱举报的地方（p99）被放大将近 4 倍，中位数的格子几乎不动（0.97）。所以修正不是整体平移，而是把两端拉开。`A2` 图左下那张就是它：蓝 = 打折，红 = 放大。
+- 修正后全城总量比原始高 6%（1.19 → 1.26），因为权重没有归一化：w_R 的零点定在"路灯加权的全城平均"上，而举报集中的地方 w_R 偏低一点。这是定义的结果，不是 bug，论文里说明即可。
+- 两个窗口的数字几乎一样：举报的空间分布在五年里是稳定的。所以五年图作为产出，两年图用来和 survey 同期对照。
+- **修正有效的证据在最后两行：** 不管和 C（survey 自己的平滑图）比还是和街区实际平均 rating 比，corrected 都比 raw 更接近 survey。幅度不大（+0.03 到 +0.04），和 CV 的结论一致：修正是"小而确定"的改善。
+- C 本身：去掉 month 和 surveyor 效应后的平滑 rating，1% / 50% / 99% 分位是 0.93 / 1.47 / 2.03，覆盖 98.5% 的格子。
+- 附录 snapshot（E[rating]）：2023-06-30 的中位数 1.26，街区 Spearman 0.71 vs 0.68；2025 年底 0.74 vs 0.70。
 
 ### 4.6 h_w = 400 还是 600？β 的单位问题
 

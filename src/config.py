@@ -66,8 +66,14 @@ ALPHA_ALT = 0.25
 BETA_GRID = np.round(np.arange(-0.2, 2.0001, 0.1), 2)     # 23 points; beta = 0 is the raw field
 NULL_BETAS = [0.5, 1.0, 1.5, 2.0]            # torus-shifted maps are evaluated at {0} + these
 N_PERM = 50
-DATE_IN = pd.Timestamp("2023-06-30")         # inside the survey window
-DATE_OUT = pd.Timestamp("2025-12-31")        # extrapolation
+DATE_IN = pd.Timestamp("2023-06-30")         # snapshot inside the survey window (appendix)
+DATE_OUT = pd.Timestamp("2025-12-31")        # snapshot extrapolation (appendix)
+
+# --- the deliverable maps (06): long-term average report rates, raw and corrected ---
+LONG_WINDOWS = {"2021-2025": (pd.Timestamp("2021-01-01"), pd.Timestamp("2026-01-01")),   # all reports
+                "2022-2023": (pd.Timestamp("2022-01-01"), pd.Timestamp("2024-01-01"))}   # the survey years
+RATE_PER = 1000.0                            # map unit: reports per year per 1,000 SafeGraph monthly stops
+SURVEY_MIN_NEFF = 10                         # survey-only map is blank where the kernel sees fewer visits
 
 # --- Stage 3: rating model ----------------------------------------------------
 SPLINE_DF = 5

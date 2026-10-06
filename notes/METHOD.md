@@ -64,9 +64,16 @@ field, map the field to the 1–4 Litter Index, and let the field survey
      drops everything within 1.2 km of a test visit): raw field vs corrected
      field with β chosen on the training fold.
 
-6. **The surface** (`06_surface.py`)
-   λ̂_β̂ on 50 m cells of the built support → E[rating] GeoTIFF, for 2023-06-30
-   (inside the survey window) and 2025-12-31 (extrapolation, flagged).
+6. **The maps** (`06_surface.py`), on 50 m cells of the built support, kept as three separate objects:
+   - **A. 311 dumping as filed:** long-term average report rate, all reports in a window kernel-smoothed
+     and divided by kernel-smoothed exposure, in reports per year per 1,000 SafeGraph monthly stops.
+     Windows: 2021–2025 (the deliverable) and 2022–2023 (the survey years).
+   - **B. Corrected:** the same with every report weighted by e^{−β̂ w_R}. "Reports that would have been
+     filed at the citywide-average reporting propensity." B / A is the correction factor.
+   - **C. The Litter Index on its own:** ratings with month and surveyor effects removed by one OLS on the
+     survey, kernel-smoothed at the visit locations with the same kernel; nothing from 311.
+   The check is that B agrees with C better than A does. Appendix: the 120-day snapshot pushed through
+   the calibrated sigmoid (E[rating], how a surveyor would score a cell) for 2023-06-30 and 2025-12-31.
 
 ## Results (run of 2026-10-05; `output/choices.json`, `calib/`, `cv/`, `surface/`)
 
@@ -112,11 +119,28 @@ training visits dropped by the 1.2 km buffer per fold)
 scores −0.731 / −0.721 and S1 −0.719 / −0.707. Block-level calibration on the 40 held-out blocks:
 slope 1.02 (raw) and 1.01 (corrected), correlation 0.86 → 0.88, block RMSE 0.144 → 0.136.
 
-**Surface** (`surface/`, 105,979 cells of 50 m, h = 800, β̂ = 0.86): on 2023-06-30 the corrected
-index has p1 / p50 / p99 = 1.08 / 1.26 / 2.01; the correction moves cells by −0.20 to +0.32 rating
-points at the 1st / 99th percentile (sd 0.09). Block-group means of the surface rank the observed
-2022–23 mean ratings at Spearman 0.71 (raw surface 0.68); the 2025-12-31 extrapolation gives
-0.74 / 0.70, i.e. the date barely matters, as the placebo implied.
+**Maps** (`surface/`, 105,979 cells of 50 m, h = 800, β̂ = 0.86; `fig3_maps.png`)
+
+| | 2021–2025 (116,772 reports) | 2022–2023 (46,608 reports) |
+|---|---|---|
+| citywide rate, raw → corrected (per year per 1,000 stops) | 1.19 → 1.26 | 1.19 → 1.26 |
+| cell rate p1 / p50 / p99, raw | 0.01 / 0.90 / 5.85 | 0.02 / 0.89 / 6.16 |
+| cell rate p1 / p50 / p99, corrected | 0.01 / 0.89 / 8.62 | 0.02 / 0.86 / 8.84 |
+| correction factor B/A, p1 / p50 / p99 | 0.49 / 0.97 / 3.88 | 0.50 / 0.97 / 3.73 |
+| block-group Spearman with the survey map C, raw → corrected | 0.66 → 0.69 | 0.66 → 0.69 |
+| block-group Spearman with observed mean rating, raw → corrected | 0.68 → 0.72 | 0.68 → 0.71 |
+| cell-level Spearman with C (98.5% of cells), raw → corrected | 0.64 → 0.65 | 0.64 → 0.64 |
+
+- The correction halves the reported rate in the highest-propensity cells (factor 0.49 at p1) and scales
+  it up almost fourfold in the lowest (3.9 at p99); the median cell barely moves (0.97). The corrected
+  citywide total is 6% above the raw one because the weights are not renormalised.
+- The two windows give the same picture (cell-level correlation of the 2021–25 and 2022–23 corrected
+  maps is high and the correction factors are nearly identical), so the five-year map is the deliverable
+  and the two-year one the like-for-like comparison with the survey.
+- C: month and surveyor effects explain 33% of rating variance; the adjusted, smoothed rating has
+  p1 / p50 / p99 = 0.93 / 1.47 / 2.03 and covers 98.5% of the support.
+- Appendix snapshot (120-day field through the sigmoid, `A1_rating_snapshot.png`): E[rating] median
+  1.26 on 2023-06-30; block-group Spearman with observed 0.71 (raw 0.68); 0.74 / 0.70 on 2025-12-31.
 
 **Checks that passed:** sparse-vs-dense unit test (1.6e-15); interior maximum of ℓ(β) at every h;
 CI excludes 0; −c/b inside the CI; torus p = 0; CV gain positive in 9/10 folds and beyond its SE;
