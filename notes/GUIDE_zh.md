@@ -175,7 +175,8 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 | `fig1_profile.png` | **ℓ(β) − ℓ(0) 曲线**（估 β 的全部信息）+ bootstrap 直方图 |
 | `fig2_linearisation.png` | rating 对 log field 的 S 形曲线，raw vs corrected |
 | `05_cv.png` | out-of-fold log-lik 随 h 的变化 + block 层面的 calibration |
-| `fig3_maps.png` | **主图。** (A) 311 原样，2021–25 平均；(B) 修正后；(C) survey 自己。A、B 同一色标 |
+| `fig3_maps.png` | **主图。** (A) 311 原样，2021–25 平均；(B) 修正后；(C) survey 自己。A、B 同一色标，都是以全城平均为 0 的 diverging 色标 |
+| `fig3b_zoom.png` | 同样三张图放大到 West Fairmount Park 一带（和参考图同范围），A 上叠加了原始 report 点，C 上叠加了 survey visit 点 |
 | `A2_windows_and_correction.png` | 附录：2022–23 窗口的 A、B；修正系数 log(B/A) 地图；w_R 地图 |
 | `A1_rating_snapshot.png` | 附录：120 天 snapshot 推过 sigmoid 的 E[rating]，修正差，2025 extrapolation |
 

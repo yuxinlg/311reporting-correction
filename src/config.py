@@ -74,6 +74,7 @@ LONG_WINDOWS = {"2021-2025": (pd.Timestamp("2021-01-01"), pd.Timestamp("2026-01-
                 "2022-2023": (pd.Timestamp("2022-01-01"), pd.Timestamp("2024-01-01"))}   # the survey years
 RATE_PER = 1000.0                            # map unit: reports per year per 1,000 SafeGraph monthly stops
 SURVEY_MIN_NEFF = 10                         # survey-only map is blank where the kernel sees fewer visits
+ZOOM = {"name": "West Fairmount Park", "x": (480500, 484500), "y": (4423800, 4429200)}   # m, for the zoomed figure
 
 # --- Stage 3: rating model ----------------------------------------------------
 SPLINE_DF = 5
@@ -116,6 +117,28 @@ def update_choices(**kw):
     with open(CHOICES, "w") as f:
         json.dump(d, f, indent=2)
     return d
+
+
+def map_style(ax, geom, title, xlim=None, ylim=None, tick_km=None):
+    """Map panel in the house style: block-group boundaries as thin black lines, axes in km
+    (EPSG:26918), title top-left. Call after imshow; the caller adds the colorbar."""
+    from matplotlib.ticker import FuncFormatter, MultipleLocator
+    geom.boundary.plot(ax=ax, color="black", linewidth=0.25, alpha=0.55)
+    if xlim is not None:
+        ax.set_xlim(*xlim); ax.set_ylim(*ylim)
+    ax.set_aspect("equal")
+    if tick_km is None:
+        span = (xlim[1] - xlim[0]) if xlim is not None else (geom.total_bounds[2] - geom.total_bounds[0])
+        tick_km = 0.5 if span < 8000 else 2
+    for axis in (ax.xaxis, ax.yaxis):
+        axis.set_major_locator(MultipleLocator(tick_km * 1000))
+        axis.set_major_formatter(FuncFormatter(lambda v, p: f"{v / 1000:.1f}" if tick_km < 1 else f"{v / 1000:.0f}"))
+    ax.tick_params(labelsize=8, colors=MUTED)
+    ax.set_xlabel("easting (km, EPSG:26918)", fontsize=9, color=MUTED)
+    ax.set_ylabel("northing (km)", fontsize=9, color=MUTED)
+    ax.set_title(title, loc="left", fontsize=10, color=INK)
+    for s in ax.spines.values():
+        s.set_color(MUTED); s.set_linewidth(0.6)
 
 
 def style(ax, title=None, xlabel=None, ylabel=None):

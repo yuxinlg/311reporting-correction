@@ -53,7 +53,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from config import (OUT, FIG, FIELDS, SURF, CRS, EPOCH, GRID_RES, TAU, ALPHA, BETA_GRID, DATE_IN, DATE_OUT,
-                    LONG_WINDOWS, RATE_PER, SURVEY_MIN_NEFF, GRID, load_choices, ensure_dirs)
+                    LONG_WINDOWS, RATE_PER, SURVEY_MIN_NEFF, ZOOM, MUTED, map_style, load_choices, ensure_dirs)
 from kernels import kernel_sum, accumulate_st, shrunk_log
 from ordinal import OrderedLogit
 from design import FE, design, spline_basis
@@ -95,13 +95,20 @@ class Raster:
             dst.update_tags(**{k: str(v) for k, v in tags.items()})
 
 
-def show(ax, Z, R, geom, title, cmap, vmin, vmax, label=None):
-    im = ax.imshow(Z, origin="upper", extent=R.extent, cmap=cmap, vmin=vmin, vmax=vmax)
-    geom.boundary.plot(ax=ax, color=GRID, linewidth=0.12)
-    ax.set_title(title, fontsize=10, loc="left"); ax.set_axis_off()
-    cb = plt.colorbar(im, ax=ax, shrink=0.55)
-    if label:
-        cb.set_label(label, fontsize=8)
+def show(ax, Z, R, geom, title, label, lim, cmap="RdBu_r", zoom=None):
+    """One map panel: centred field on a diverging scale ±lim, km axes, horizontal colorbar below."""
+    im = ax.imshow(Z, origin="upper", extent=R.extent, cmap=cmap, vmin=-lim, vmax=lim, interpolation="nearest")
+    map_style(ax, geom, title, xlim=zoom["x"] if zoom else None, ylim=zoom["y"] if zoom else None)
+    cb = plt.colorbar(im, ax=ax, orientation="horizontal", shrink=0.75, pad=0.08, aspect=35)
+    cb.set_label(label, fontsize=8, color=MUTED); cb.ax.tick_params(labelsize=8, colors=MUTED)
+    return im
+
+
+def sym_lim(*arrays, q=0.90):
+    """Symmetric colour limit: the q-quantile of |values| over the arrays given. The default q = 0.90
+    keeps contrast in the built-up city; the long negative tail (near-empty cells at the edges of
+    the support, log rate < −3) saturates, which is intended."""
+    return float(np.nanquantile(np.abs(np.concatenate([np.asarray(a).ravel() for a in arrays])), q))
 
 
 # =============================================================================
@@ -289,47 +296,75 @@ def main():
     cb.reset_index().to_csv(os.path.join(SURF, "surface_cbg.csv"), index=False)
     with open(os.path.join(SURF, "summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
-    _figures(R, geom, LT, S, snap, beta_hat, HW0)
+    _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v)
     print(f"\nDone in {time.time() - t_start:.0f} s. Saved → output/surface/dumping_*.tif, litter_survey.tif, litter_index_*.tif, "
-          f"surface_cbg.csv, summary.json; figures fig3_maps.png, A1_rating_snapshot.png, A2_windows_and_correction.png")
+          f"surface_cbg.csv, summary.json; figures fig3_maps.png, fig3b_zoom.png, A1_rating_snapshot.png, A2_windows_and_correction.png")
 
 
-def _figures(R, geom, LT, S, snap, beta_hat, HW0):
-    main = "2021-2025"
-    L = LT[main]
-    lo, hi = np.nanquantile(np.r_[L["log_rel_raw"], L["log_rel_corr"]], [.01, .99])
-    fig, axes = plt.subplots(1, 3, figsize=(17, 6))
-    show(axes[0], R.grid(L["log_rel_raw"]), R, geom, f"(A) 311 dumping reports as filed, {main} average",
-         "Blues", lo, hi, "log(rate / citywide rate)")
-    show(axes[1], R.grid(L["log_rel_corr"]), R, geom, f"(B) corrected for reporting propensity (β̂ = {beta_hat:.2f})",
-         "Blues", lo, hi, "log(rate / citywide rate)")
-    c_lo, c_hi = np.nanquantile(S["rating_adj"], [.01, .99])
-    show(axes[2], R.grid(S["rating_adj"]), R, geom, "(C) Litter Index survey on its own, 2022–23 (month + surveyor adjusted)",
-         "Oranges", c_lo, c_hi, "rating 1–4")
+def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
+    """House style (after the project's reference figure): centred fields on a diverging RdBu_r scale,
+    km axes in EPSG:26918, block-group outlines, horizontal colorbars, titles top-left."""
+    main = "2021-2025"; other = [k for k in LT if k != main][0]
+    L, Lo = LT[main], LT[other]
+    lim = sym_lim(L["log_rel_raw"], L["log_rel_corr"])
+    c_mean = float(np.nanmean(S["rating_adj"]))
+    C = S["rating_adj"] - c_mean
+    c_lim = sym_lim(C)
+    lab_rate = "log rate, centred on the citywide rate  (< 0 fewer reports than average, > 0 more)"
+    lab_c = f"adjusted rating − citywide mean ({c_mean:.2f}), rating points"
+    panels = [(f"(A) 311 dumping reports as filed, {main} average", L["log_rel_raw"], lab_rate, lim),
+              (f"(B) corrected for reporting propensity, β̂ = {beta_hat:.2f}", L["log_rel_corr"], lab_rate, lim),
+              ("(C) Litter Index survey on its own, 2022–23 (month + surveyor adjusted)", C, lab_c, c_lim)]
+
+    # fig3: citywide
+    fig, axes = plt.subplots(1, 3, figsize=(19, 8))
+    for ax, (title, val, lab, l) in zip(axes, panels):
+        show(ax, R.grid(val), R, geom, title, lab, l)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig3_maps.png"), dpi=170); plt.close(fig)
 
-    other = [k for k in LT if k != main][0]
-    Lo = LT[other]
-    fig, axes = plt.subplots(2, 2, figsize=(12, 11))
-    show(axes[0, 0], R.grid(Lo["log_rel_raw"]), R, geom, f"311 as filed, {other} average", "Blues", lo, hi, "log(rate / citywide rate)")
-    show(axes[0, 1], R.grid(Lo["log_rel_corr"]), R, geom, f"corrected, {other} average", "Blues", lo, hi, "log(rate / citywide rate)")
-    cf = np.log(L["correction_factor"]); lim = np.nanquantile(np.abs(cf), .99)
-    show(axes[1, 0], R.grid(cf), R, geom, f"correction factor, {main}: log(corrected / raw)", "RdBu_r", -lim, lim,
-         "< 0: reports discounted (high propensity); > 0: scaled up")
+    # fig3b: the reference window, with the underlying points overlaid
+    inz = lambda x, y: (x >= ZOOM["x"][0]) & (x <= ZOOM["x"][1]) & (y >= ZOOM["y"][0]) & (y <= ZOOM["y"][1])
+    t0, t1 = LONG_WINDOWS[main]
+    e = ev[inz(ev["x"], ev["y"]) & (ev["ts"] >= t0) & (ev["ts"] < t1)]
+    vz = v[inz(v["x"], v["y"])]
+    fig, axes = plt.subplots(1, 3, figsize=(19, 9))
+    for ax, (title, val, lab, l) in zip(axes, panels):
+        show(ax, R.grid(val), R, geom, title, lab, l, zoom=ZOOM)
+    fig.suptitle(f"{ZOOM['name']} and surroundings — the same three maps at neighbourhood scale", x=0.01, ha="left",
+                 fontsize=11, y=0.995)
+    axes[0].scatter(e["x"], e["y"], s=4, marker="x", c="black", linewidths=0.4, alpha=0.45,
+                    label=f"311 dumping reports, {main} ({len(e):,})")
+    axes[2].scatter(vz["x"], vz["y"], s=3, marker="o", facecolors="#ffd400", edgecolors="black", linewidths=0.25,
+                    alpha=0.8, label=f"survey visits, 2022–23 ({len(vz):,})")
+    for ax in (axes[0], axes[2]):
+        ax.legend(loc="upper left", fontsize=8, frameon=True, framealpha=0.9, edgecolor=MUTED)
+    fig.tight_layout(rect=(0, 0, 1, 0.97)); fig.savefig(os.path.join(FIG, "fig3b_zoom.png"), dpi=170); plt.close(fig)
+
+    # A2: the two-year window, the correction factor, w_R
+    cf = np.log(L["correction_factor"])
     z = np.load(os.path.join(OUT, "wR_raster.npz")); W = z["wR"]
-    im = axes[1, 1].imshow(W, origin="lower", extent=[z["x"][0], z["x"][-1], z["y"][0], z["y"][-1]], cmap="Blues",
-                           vmin=np.nanquantile(W, .02), vmax=np.nanquantile(W, .98))
-    geom.boundary.plot(ax=axes[1, 1], color=GRID, linewidth=0.12); axes[1, 1].set_axis_off()
-    axes[1, 1].set_title(f"reporting propensity w_R from poles (h_w = {HW0} m)", fontsize=10, loc="left")
-    plt.colorbar(im, ax=axes[1, 1], shrink=0.55)
+    fig, axes = plt.subplots(2, 2, figsize=(13, 13))
+    show(axes[0, 0], R.grid(Lo["log_rel_raw"]), R, geom, f"311 as filed, {other} average", lab_rate, lim)
+    show(axes[0, 1], R.grid(Lo["log_rel_corr"]), R, geom, f"corrected, {other} average", lab_rate, lim)
+    show(axes[1, 0], R.grid(cf), R, geom, f"correction factor, {main}: log(corrected / raw)",
+         "< 0 reports discounted (high reporting propensity); > 0 scaled up", sym_lim(cf, q=0.99))
+    im = axes[1, 1].imshow(W, origin="lower", extent=[z["x"][0], z["x"][-1], z["y"][0], z["y"][-1]], cmap="RdBu_r",
+                           vmin=-sym_lim(W), vmax=sym_lim(W), interpolation="nearest")
+    map_style(axes[1, 1], geom, f"reporting propensity w_R from street poles (h_w = {HW0} m)")
+    cb = plt.colorbar(im, ax=axes[1, 1], orientation="horizontal", shrink=0.75, pad=0.08, aspect=35)
+    cb.set_label("log outage reports per pole, centred on the pole-weighted mean", fontsize=8, color=MUTED)
+    cb.ax.tick_params(labelsize=8, colors=MUTED)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "A2_windows_and_correction.png"), dpi=150); plt.close(fig)
 
-    fig, axes = plt.subplots(1, 3, figsize=(17, 6))
-    E = snap["in"]["E_rating_corr"]; e_lo, e_hi = np.nanquantile(E, [.01, .99])
-    show(axes[0], R.grid(E), R, geom, f"311 → E[rating] through the calibrated sigmoid, {DATE_IN.date()}, corrected", "Blues", e_lo, e_hi, "E[rating]")
-    d = snap["in"]["E_rating_corr"] - snap["in"]["E_rating_raw"]; dl = np.nanquantile(np.abs(d), .99)
-    show(axes[1], R.grid(d), R, geom, "effect of the correction on E[rating]: corrected − raw", "RdBu_r", -dl, dl, "rating points")
-    show(axes[2], R.grid(snap["out"]["E_rating_corr"]), R, geom, f"E[rating], {DATE_OUT.date()} — EXTRAPOLATION", "Blues", e_lo, e_hi, "E[rating]")
+    # A1: the sigmoid snapshot (appendix)
+    E = snap["in"]["E_rating_corr"]; e_mean = float(np.nanmean(E)); e_lim = sym_lim(E - e_mean)
+    d = snap["in"]["E_rating_corr"] - snap["in"]["E_rating_raw"]
+    fig, axes = plt.subplots(1, 3, figsize=(19, 8))
+    show(axes[0], R.grid(E - e_mean), R, geom, f"311 → E[rating] through the calibrated sigmoid, {DATE_IN.date()}, corrected",
+         f"E[rating] − citywide mean ({e_mean:.2f}), rating points", e_lim)
+    show(axes[1], R.grid(d), R, geom, "effect of the correction on E[rating]: corrected − raw", "rating points", sym_lim(d, q=0.99))
+    show(axes[2], R.grid(snap["out"]["E_rating_corr"] - e_mean), R, geom, f"E[rating], {DATE_OUT.date()} — EXTRAPOLATION",
+         f"E[rating] − {e_mean:.2f}, rating points", e_lim)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "A1_rating_snapshot.png"), dpi=150); plt.close(fig)
 
 
