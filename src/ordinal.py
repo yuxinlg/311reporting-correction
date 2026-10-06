@@ -125,6 +125,11 @@ class OrderedLogit:
             t0 = np.asarray(theta0, float).copy()
             t0[:p] = t0[:p] * sc
         pen = None if penalty is None else np.asarray(penalty, float)
+        # The objective is the MEAN negative log-likelihood (per unit weight), so `gtol`
+        # is a per-observation gradient tolerance that does not scale with n. With the
+        # summed objective the gradient is O(n) and gtol is never reached, so every fit
+        # runs to the ftol criterion (hundreds of evaluations) regardless of gtol.
+        n_w = float(len(y) if w is None else np.sum(w))
 
         def obj(t):
             nll, g = self.nll_grad(t, Xs, y, w)
@@ -132,13 +137,13 @@ class OrderedLogit:
                 b = t[:p] / sc
                 nll += 0.5 * np.sum(pen * b * b)
                 g[:p] += pen * b / sc
-            return nll, g
+            return nll / n_w, g / n_w
 
         res = minimize(obj, t0, jac=True, method="L-BFGS-B",
-                       options={"maxiter": maxiter, "maxfun": maxiter * 2, "ftol": 1e-12, "gtol": gtol})
+                       options={"maxiter": maxiter, "maxfun": maxiter * 2, "ftol": 1e-14, "gtol": gtol})
         theta = res.x.copy()
         theta[:p] = theta[:p] / sc
-        ll = -self.nll_grad(res.x, Xs, y, w)[0] if pen is not None else -res.fun
+        ll = -self.nll_grad(res.x, Xs, y, w)[0]
         return theta, ll, bool(res.success)
 
     def hessian(self, theta, X, y, w=None, eps=1e-5):
