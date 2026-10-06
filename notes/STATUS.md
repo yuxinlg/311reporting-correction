@@ -3,8 +3,7 @@
 Point-level correction of 311 illegal-dumping reports for reporting propensity,
 with street-light-outage reports per pole as the yardstick, calibrated to the
 Litter Index field survey. **Read `notes/METHOD.md` first** — one page, the
-whole method and the results. `notes/GUIDE_zh.md` is the zero-context
-walkthrough in Chinese: every output file, every step, every number.
+whole method and the results.
 
 ## Pipeline (run in order; every step re-runs from the raw symlinks in `data/`)
 

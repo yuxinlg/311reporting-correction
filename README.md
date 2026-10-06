@@ -28,8 +28,7 @@ a torus-shift null on the `w_R` map gives `p = 0`. Full method and results:
 
 ```
 src/        the pipeline: 01_data … 07_districts, plus config, kernels, ordinal, design
-notes/      METHOD.md (method + results), STATUS.md (what each script writes, runtimes),
-            GUIDE_zh.md (zero-context walkthrough)
+notes/      METHOD.md (method + results), STATUS.md (what each script writes, runtimes)
 data/       symlinks to the raw data (untracked); data/README.md documents provenance
 output/     everything the pipeline writes (untracked): tables, rasters, figures, logs
 archive/    the first, larger pipeline, kept unchanged; reproducible at tag v0-full-pipeline
