@@ -27,7 +27,9 @@ For every district (table for all 18, figures for DISTRICTS):
                     citywide value (a loss under ~2 is noise)
   figure       (A) as filed, (B) corrected, (C) survey on its own — 06's rasters on the
                citywide colour scales, zoomed to the district with its outline, reports and
-               visits overlaid; (D) w_R; (E) correction factor; (F) the district's profile curve
+               visits overlaid; (D) w_R; (E) correction factor (ratio); (F) the correction in
+               absolute terms, corrected − as filed. The district's own profile curve is kept
+               in profile_curves.csv and its numbers in the table, not drawn.
 
 Reads   data/Planning_Districts.geojson; output/{cbg_geom.geojson, support_grid, points_dumping, wR_events,
         visits}.parquet, wR_raster.npz; fields/h{H0}.npz; calib/profile_h{H0}_month+surv_a{α}_hw{HW0}.npz;
@@ -56,8 +58,8 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, MultipleLocator
 
 from config import (DATA, OUT, FIG, FIELDS, CALIB, SURF, DIST, CRS, ALPHA, BETA_GRID, LONG_WINDOWS, RATE_PER,
-                    DISTRICT_FILE, DISTRICT_COL, DISTRICTS, ZOOM_PAD, C1, INK, MUTED, GRID, CMAP_LITTER, CMAP_DUMPING,
-                    CMAP_PROPENSITY, CMAP_FACTOR, style, load_choices, ensure_dirs)
+                    DISTRICT_FILE, DISTRICT_COL, DISTRICTS, ZOOM_PAD, INK, MUTED, CMAP_LITTER, CMAP_DUMPING,
+                    CMAP_PROPENSITY, CMAP_FACTOR, load_choices, ensure_dirs)
 from ordinal import OrderedLogit
 from design import FE, design
 
@@ -202,7 +204,8 @@ def main():
 
     # ---- figures for the requested districts ---------------------------------------------------------
     scales = {"rate": surf.rate_scale(D["log_rel_raw"], D["log_rel_corr"]),
-              "c_mean": float(np.nanmean(S["rating_adj"])), "cf_lim": surf.sym_lim(np.log(D["correction_factor"]), q=0.99)}
+              "c_mean": float(np.nanmean(S["rating_adj"])), "cf_lim": surf.sym_lim(np.log(D["correction_factor"]), q=0.99),
+              "d_lim": surf.sym_lim(D["rate_delta"], q=0.95)}            # the same limits 06 uses citywide
     scales["c_lim"] = surf.sym_lim(S["rating_adj"] - scales["c_mean"])
     z = np.load(os.path.join(OUT, "wR_raster.npz")); res = float(z["res"])
     W = {"Z": z["wR"][::-1], "extent": [z["x"][0] - res / 2, z["x"][-1] + res / 2, z["y"][0] - res / 2, z["y"][-1] + res / 2],
@@ -210,14 +213,14 @@ def main():
     for d, label in DISTRICTS.items():
         row = tab[tab["district"] == d].iloc[0]
         poly = dist.loc[dist["district"] == d, "geometry"].iloc[0]
-        _figure(d, label, poly, row, curves[d], D, S, extent, W, scales, geom, ev[ev["district"] == d], v[v["district"] == d],
-                beta_hat, ci, HW0, os.path.join(FIG, f"fig4_{d.lower().replace(' ', '_')}.png"))
+        _figure(d, label, poly, row, D, S, extent, W, scales, geom, ev[ev["district"] == d], v[v["district"] == d],
+                beta_hat, HW0, os.path.join(FIG, f"fig4_{d.lower().replace(' ', '_')}.png"))
     print(f"\nDone in {time.time() - t_start:.0f} s. Saved → output/districts/districts.csv, profile_curves.csv, cbg_district.csv, "
           f"summary.json; figures " + ", ".join(f"fig4_{d.lower()}.png" for d in DISTRICTS))
 
 
-def _figure(d, label, poly, row, curve, D, S, extent, W, sc, geom, e, vz, beta_hat, ci, HW0, path):
-    """2 × 3: the three 06 maps and w_R / correction factor zoomed to the district, plus its profile curve."""
+def _figure(d, label, poly, row, D, S, extent, W, sc, geom, e, vz, beta_hat, HW0, path):
+    """2 × 3: the three 06 maps, w_R, the correction factor and the correction delta, zoomed to the district."""
     x0, y0, x1, y1 = poly.bounds
     zoom = {"x": (x0 - ZOOM_PAD, x1 + ZOOM_PAD), "y": (y0 - ZOOM_PAD, y1 + ZOOM_PAD)}
     R = SimpleNamespace(extent=extent)
@@ -234,7 +237,10 @@ def _figure(d, label, poly, row, curve, D, S, extent, W, sc, geom, e, vz, beta_h
               (axes[1, 0], W["Z"], SimpleNamespace(extent=W["extent"]), f"(D) reporting propensity w_R from street poles (h_w = {HW0} m)",
                "log outage reports per pole, centred   (pink = chatty, green = quiet)", -W["lim"], W["lim"], CMAP_PROPENSITY, None, None),
               (axes[1, 1], np.log(D["correction_factor"]), R, f"(E) correction factor, {MAIN}: log(corrected / as filed)",
-               "pink = reports discounted (chatty); green = scaled up (quiet)", -sc["cf_lim"], sc["cf_lim"], CMAP_FACTOR, None, None)]
+               "pink = reports discounted (chatty); green = scaled up (quiet)", -sc["cf_lim"], sc["cf_lim"], CMAP_FACTOR, None, None),
+              (axes[1, 2], D["rate_delta"], R, f"(F) effect of the correction, {MAIN}: corrected − as filed",
+               f"reports per year per {RATE_PER:,.0f} stops   (pink = reports discounted, green = scaled up)",
+               -sc["d_lim"], sc["d_lim"], CMAP_FACTOR, None, None)]
     for ax, Z, Rz, title, lab, lo, hi, cmap, tk, tl in panels:
         surf.show(ax, Z, Rz, geom, title, lab, lo, hi, cmap, zoom=zoom, ticks=tk, ticklabels=tl)
         outline.plot(ax=ax, color=INK, linewidth=1.4)
@@ -246,26 +252,14 @@ def _figure(d, label, poly, row, curve, D, S, extent, W, sc, geom, e, vz, beta_h
                        label=f"survey visits, 2022–23 ({len(vz):,})")
     for ax in (axes[0, 0], axes[0, 2]):
         ax.legend(loc="upper left", fontsize=8, frameon=True, framealpha=0.9, edgecolor=MUTED)
-
-    # (F) the district's own profile curve against the citywide β̂ and its CI
-    ax = axes[1, 2]
-    ax.axvspan(ci[0], ci[1], color=MUTED, alpha=0.12, lw=0, label="citywide β̂ and 95% CI")
-    ax.axvline(beta_hat, color=MUTED, lw=1, ls="--"); ax.axvline(0, color=GRID, lw=1); ax.axhline(0, color=GRID, lw=1)
-    ax.plot(BETA_GRID, curve, "-o", color=C1, lw=2, ms=3,
-            label=f"{label}: β̂ = {row['beta_own']:.2f}{' (grid edge)' if row['at_edge'] else ''}, Δℓ = {row['dll_own']:+.0f}")
-    ax.axvline(row["beta_own"], color=C1, lw=1, ls="--")
-    style(ax, f"(F) profile log-likelihood on the district's {row['n_visits']:,} visits alone, ℓ_d(β) − ℓ_d(0)", "β", "Δℓ")
-    top = curve[-1] >= curve[0]                      # rising curve leaves the top-left corner free, falling one the bottom-left
-    ax.legend(frameon=False, fontsize=8, loc="lower right" if top else "upper right")
-    ax.text(0.02, 0.97 if top else 0.03, f"citywide model on these visits: Δℓ = {row['dll_citywide_model']:+.0f}\n"
-                                         f"loss from holding β at the citywide β̂: {row['loss_at_citywide_beta']:.1f}\n"
-                                         f"block groups, Spearman with the survey: as filed {row['rho_cbg_raw']:.2f} → corrected {row['rho_cbg_corr']:.2f}",
-            transform=ax.transAxes, va="top" if top else "bottom", fontsize=8, color=MUTED)
-
     fig.suptitle(f"{label} ({d} planning district) — {row['n_cbg']} block groups, {row['n_reports']:,} dumping reports {MAIN}, "
                  f"{row['n_visits']:,} survey visits; report rate ×{row['rel_raw']:.2f} of citywide as filed, ×{row['rel_corr']:.2f} corrected "
-                 f"(mean w_R at reports {row['wR_mean_reports']:+.2f})", x=0.01, ha="left", fontsize=11, y=0.995)
-    fig.tight_layout(rect=(0, 0, 1, 0.975)); fig.savefig(path, dpi=150); plt.close(fig)
+                 f"(mean w_R at reports {row['wR_mean_reports']:+.2f})\n"
+                 f"block groups, Spearman with the survey: as filed {row['rho_cbg_raw']:.2f} → corrected {row['rho_cbg_corr']:.2f};  "
+                 f"citywide model's gain on these visits Δℓ = {row['dll_citywide_model']:+.0f};  "
+                 f"β̂ from these visits alone {row['beta_own']:.2f}{' (grid edge)' if row['at_edge'] else ''} (Δℓ {row['dll_own']:+.0f})",
+                 x=0.01, ha="left", fontsize=10, y=0.995)
+    fig.tight_layout(rect=(0, 0, 1, 0.965)); fig.savefig(path, dpi=150); plt.close(fig)
 
 
 if __name__ == "__main__":

@@ -34,12 +34,13 @@ places, green = quiet places, in both).
 
 Writes  output/surface/dumping_{window}.tif      bands rate_raw, rate_corr (per year per 1,000 stops),
                                                   log_rel_raw, log_rel_corr (log of rate / citywide rate),
-                                                  correction_factor (corrected / raw)
+                                                  correction_factor (corrected / raw), rate_delta (corrected − raw)
         output/surface/litter_survey.tif         bands rating_adj, rating_mean, n_eff
         output/surface/litter_index_{date}.tif   appendix snapshot: E_rating_corr, E_rating_raw, log_lam_corr, log_lam_raw
         output/surface/surface_cbg.csv, summary.json
         output/figures/fig3_maps.png (A, B, C), fig5_dumping_corrected.png (B alone, planning districts named),
-        fig3b_zoom.png, A1_rating_snapshot.png, A2_windows_and_correction.png
+        fig5b_correction_delta.png (corrected − as filed, same layout), fig3b_zoom.png, A1_rating_snapshot.png,
+        A2_windows_and_correction.png
 """
 
 import os
@@ -115,6 +116,15 @@ def show(ax, Z, R, geom, title, label, vmin, vmax, cmap, zoom=None, ticks=None, 
     return im
 
 
+def districts_on(ax, dist):
+    """Planning-district outlines and names on top of a map panel."""
+    dist.boundary.plot(ax=ax, color=INK, linewidth=0.9)
+    for _, d in dist.iterrows():
+        p = d.geometry.representative_point()
+        ax.text(p.x, p.y, d[DISTRICT_COL], fontsize=7.5, ha="center", va="center", color=INK,
+                path_effects=[patheffects.withStroke(linewidth=2.5, foreground="white")])
+
+
 def sym_lim(*arrays, q=0.90):
     """Symmetric colour limit for a centred field: the q-quantile of |values|."""
     return float(np.nanquantile(np.abs(np.concatenate([np.asarray(a).ravel() for a in arrays])), q))
@@ -148,6 +158,7 @@ def long_term(ev_xy, ev_ts, ev_t, m_hat, sxy, den, H0, t0, t1):
         out[f"citywide_rate_{which}"] = float(lam_bar / years * RATE_PER)
         out[f"zero_cells_{which}"] = float((num == 0).mean())
     out["correction_factor"] = out["rate_corr"] / out["rate_raw"]
+    out["rate_delta"] = out["rate_corr"] - out["rate_raw"]              # the correction in absolute terms
     return out
 
 
@@ -231,10 +242,10 @@ def main():
         t = time.time()
         L = long_term(ev_xy, ev["ts"], ev_t, m_hat, sxy, den, H0, t0, t1)
         LT[name] = L
-        R.write(os.path.join(SURF, f"dumping_{name}.tif"),
-                {k: L[k] for k in ["rate_raw", "rate_corr", "log_rel_raw", "log_rel_corr", "correction_factor"]},
+        bands = ["rate_raw", "rate_corr", "log_rel_raw", "log_rel_corr", "correction_factor", "rate_delta"]
+        R.write(os.path.join(SURF, f"dumping_{name}.tif"), {k: L[k] for k in bands},
                 {"window": name, "beta_hat": beta_hat, "h_m": H0, "unit": summary["rate_unit"]})
-        for k in ["rate_raw", "rate_corr", "log_rel_raw", "log_rel_corr", "correction_factor"]:
+        for k in bands:
             cbg[f"{k}_{name}"] = L[k]
         summary["long_term"][name] = {
             "n_reports": L["n_reports"], "years": round(L["years"], 2),
@@ -316,8 +327,8 @@ def main():
         json.dump(summary, f, indent=2)
     _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v)
     print(f"\nDone in {time.time() - t_start:.0f} s. Saved → output/surface/dumping_*.tif, litter_survey.tif, litter_index_*.tif, "
-          f"surface_cbg.csv, summary.json; figures fig3_maps.png, fig5_dumping_corrected.png, fig3b_zoom.png, "
-          f"A1_rating_snapshot.png, A2_windows_and_correction.png")
+          f"surface_cbg.csv, summary.json; figures fig3_maps.png, fig5_dumping_corrected.png, fig5b_correction_delta.png, "
+          f"fig3b_zoom.png, A1_rating_snapshot.png, A2_windows_and_correction.png")
 
 
 def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
@@ -354,12 +365,17 @@ def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
          f"multiple of the citywide corrected rate (above) and reports per year per {RATE_PER:,.0f} SafeGraph monthly stops "
          f"(below; citywide {rate:.2f})\nblue = less dumping than the city average, red = more",
          r_lo, r_hi, CMAP_DUMPING, ticks=r_ticks, ticklabels=[f"{l}\n{np.exp(t) * rate:.2f}" for l, t in zip(r_labels, r_ticks)])
-    dist.boundary.plot(ax=ax, color=INK, linewidth=0.9)
-    for _, d in dist.iterrows():
-        p = d.geometry.representative_point()
-        ax.text(p.x, p.y, d[DISTRICT_COL], fontsize=7.5, ha="center", va="center", color=INK,
-                path_effects=[patheffects.withStroke(linewidth=2.5, foreground="white")])
+    districts_on(ax, dist)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig5_dumping_corrected.png"), dpi=170); plt.close(fig)
+
+    # fig5b: what the correction did, in absolute terms — corrected − as filed (pink = reports discounted, green = scaled up)
+    d_lim = sym_lim(L["rate_delta"], q=0.95)
+    fig, ax = plt.subplots(figsize=(10.5, 11.5))
+    show(ax, R.grid(L["rate_delta"]), R, geom, f"Effect of the correction, {main}: corrected − as filed",
+         f"reports per year per {RATE_PER:,.0f} SafeGraph monthly stops\n"
+         "pink = reports discounted (chatty neighbourhoods), green = scaled up (quiet ones)", -d_lim, d_lim, CMAP_FACTOR)
+    districts_on(ax, dist)
+    fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig5b_correction_delta.png"), dpi=170); plt.close(fig)
 
     # fig3b: the reference window, with the underlying points overlaid
     inz = lambda x, y: (x >= ZOOM["x"][0]) & (x <= ZOOM["x"][1]) & (y >= ZOOM["y"][0]) & (y <= ZOOM["y"][1])

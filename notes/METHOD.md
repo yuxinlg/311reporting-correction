@@ -74,9 +74,11 @@ field, map the field to the 1–4 Litter Index, and let the field survey
      survey, kernel-smoothed at the visit locations with the same kernel; nothing from 311.
    The check is that B agrees with C better than A does. B on its own, with the 18 planning districts
    outlined and named and the colorbar in multiples of the citywide rate and in absolute rates, is the
-   conclusion map (`fig5_dumping_corrected.png`): the estimate of where dumping happens. Appendix: the
-   120-day snapshot pushed through the calibrated sigmoid (E[rating], how a surveyor would score a cell)
-   for 2023-06-30 and 2025-12-31.
+   conclusion map (`fig5_dumping_corrected.png`): the estimate of where dumping happens. Its companion
+   `fig5b_correction_delta.png` is B − A in absolute units (band `rate_delta`): where the correction removed
+   reports (chatty places, pink) and where it added them (quiet places, green). Appendix: the 120-day
+   snapshot pushed through the calibrated sigmoid (E[rating], how a surveyor would score a cell) for
+   2023-06-30 and 2025-12-31.
 
 7. **District zooms** (`07_districts.py`): the same maps and the same calibration inside one City Planning
    Commission district (Center City = "Central", South Philadelphia = "South"; block groups assigned by their
@@ -87,7 +89,9 @@ field, map the field to the 1–4 Litter Index, and let the field survey
    Δℓ on the grid); and the district's own β̂ from the profile likelihood refitted on its visits alone with its
    own month and surveyor effects. The loss ℓ_d(β̂_d) − ℓ_d(β̂) says whether the district is consistent with
    the citywide β; it is a naive profile quantity (no allowance for spatial correlation; citywide the same
-   quantity is 1.7 between β̂ and the grid point 0.9).
+   quantity is 1.7 between β̂ and the grid point 0.9). The district figure shows A, B, C, w_R, the
+   correction factor and the correction delta (B − A) on the citywide colour scales; the profile numbers
+   sit in the title and the table.
 
 ## Results (run of 2026-10-05; `output/choices.json`, `calib/`, `cv/`, `surface/`)
 

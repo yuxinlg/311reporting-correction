@@ -159,7 +159,7 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 
 | 文件 | 内容 |
 |---|---|
-| `dumping_2021-2025.tif` | **A 和 B。** GeoTIFF，50 m，5 个 band：`rate_raw`（311 原样的举报率，每年每 1,000 人流 stop）、`rate_corr`（每条举报乘 exp(−β̂ w_R) 后的"真实"率）、`log_rel_raw` / `log_rel_corr`（相对全城平均的 log，画图用）、`correction_factor`（corr ÷ raw） |
+| `dumping_2021-2025.tif` | **A 和 B。** GeoTIFF，50 m，6 个 band：`rate_raw`（311 原样的举报率，每年每 1,000 人流 stop）、`rate_corr`（每条举报乘 exp(−β̂ w_R) 后的"真实"率）、`log_rel_raw` / `log_rel_corr`（相对全城平均的 log，画图用）、`correction_factor`（corr ÷ raw）、`rate_delta`（corr − raw，修正前后的差值，绝对单位） |
 | `dumping_2022-2023.tif` | 同上，只用 survey 那两年的举报，和 survey 同期对照用 |
 | `litter_survey.tif` | **C。** 只用 survey：`rating_adj`（去掉 month 和 surveyor 效应后的 rating，kernel 平滑）、`rating_mean`（不去效应的平均）、`n_eff`（kernel 里有效 visit 数；< 10 的格子是 NaN） |
 | `litter_index_2023-06-30.tif`, `litter_index_2025-12-31.tif` | **附录。** 某日期前 120 天的 311 field 推过 sigmoid 得到的 E[rating]，4 个 band。回答的是"311 能多好地复现 survey"，不是"倾倒在哪" |
@@ -183,10 +183,11 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 | `05_cv.png` | out-of-fold log-lik 随 h 的变化 + block 层面的 calibration |
 | `fig3_maps.png` | **主图。** (A) 311 原样，2021–25 平均；(B) 修正后；(C) survey 自己。A、B 同一色标，都是以全城平均为 0 的 diverging 色标 |
 | `fig5_dumping_corrected.png` | **结论图。** 只有 B：用 β̂ 修正后的 311 估计出的真实 dumping 分布，2021–25 平均。叠加 18 个 planning district 的边界和名字；colorbar 同时标全城倍数（×0.3、×1、×3）和绝对值（每年每 1,000 stop 的举报数，全城 1.26） |
+| `fig5b_correction_delta.png` | **修正前后的差值。** B − A，绝对单位（每年每 1,000 stop），同样叠加 district 边界和名字。粉 = 修正拿掉了举报（chatty 的地方），绿 = 修正加上了举报（quiet 的地方）。和 A2 里的修正系数不同：系数是倍数，这张是绝对量，举报本来就少的地方倍数再大差值也小 |
 | `fig3b_zoom.png` | 同样三张图放大到 West Fairmount Park 一带（和参考图同范围），A 上叠加了原始 report 点，C 上叠加了 survey visit 点 |
 | `A2_windows_and_correction.png` | 附录：2022–23 窗口的 A、B；修正系数 log(B/A) 地图；w_R 地图 |
 | `A1_rating_snapshot.png` | 附录：120 天 snapshot 推过 sigmoid 的 E[rating]，修正差，2025 extrapolation |
-| `fig4_central.png`, `fig4_south.png` | **按区放大。** Center City / South Philly 各一张：(A)(B)(C) 用 fig3 同样的色标放大到该区并画出区界，A 叠加 report 点，C 叠加 visit 点；(D) w_R；(E) 修正系数；(F) 只用该区 visit 重跑的 profile 曲线，灰带是全城 β̂ 的 95% CI |
+| `fig4_central.png`, `fig4_south.png` | **按区放大。** Center City / South Philly 各一张：(A)(B)(C) 用 fig3 同样的色标放大到该区并画出区界，A 叠加 report 点，C 叠加 visit 点；(D) w_R；(E) 修正系数（倍数）；(F) 修正前后的差值 B − A（绝对单位，和 fig5b 同色标）。六张全部用全城的色标，所以能直接和全城比。该区自己重跑的 β̂ 和 Spearman 写在标题第二行 |
 
 ### 2.8 `districts/`：07 的产出，按 planning district 放大
 
@@ -294,6 +295,8 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 
 **结论图（`fig5_dumping_corrected.png`）：** 就是 B 单独放大一张，叠上 planning district 的边界和名字。它回答的是最初的问题："费城哪里真的在倾倒"。读法：红 = 修正后的举报率高于全城平均，蓝 = 低于；colorbar 下面一行是绝对值。
 
+**差值图（`fig5b_correction_delta.png`）：** B − A，绝对单位。回答"修正到底动了哪里、动了多少"。粉色是举报被拿掉的地方（爱打 311 的社区），绿色是被补上的地方（不爱打的社区）。注意它是绝对量，和修正系数（倍数）不同：Upper Far Northeast 的系数可能很大，但那里举报本来就少，差值接近 0；River Wards 系数 1.6、举报本来就多，差值就大。
+
 **附录：** 旧的做法是把某日期前 120 天的 311 field 推过 Step 3 的 sigmoid，得到 E[rating]（"如果 surveyor 来打分会打几分"）。它回答的是"311 能多好地复现 survey"，保留为附录对照（`A1_rating_snapshot.png`），不是主产出。
 
 ### 3.7 Step 7：按 planning district 放大（`07_districts.py`）
@@ -305,7 +308,9 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 - **举报倾向**：该区 report 位置上 w_R 的平均值（0 = 全城平均，正 = 爱举报）。
 - **举报率**：直接用点和该区的 exposure 算（不经 kernel），raw 和 corrected 各一个，以全城率的倍数表示；corrected ÷ raw 是该区的修正系数。
 - **和 survey 的吻合**：该区街区层面 A、B 和 C 的 Spearman。修正在这个区内有没有让排序更接近 survey？
-- **β 在区内成不成立**，两个角度：(i) 全城模型在该区 visit 上的 Δℓ——全城系数不动，把 ℓ(0.9) − ℓ(0) 按 visit 所在区加总，18 个区加起来正好等于全城的 Δℓ；(ii) 只用该区的 visit 重新跑一遍 profile likelihood（带自己的 month 和 surveyor 效应），得到该区自己的 β̂。"在全城 β̂ 处的损失" = ℓ_d(β̂_d) − ℓ_d(β̂)，2 以下说明该区和全城的 β 一致。注意 (ii) 的 cutpoint 和 FE 把区的整体水平吸收掉了，只剩**区内**的空间差异在识别 β；这个损失也没有考虑空间相关（全城同样算法在 β̂ 和网格点 0.9 之间就差 1.7），偏大。
+- **β 在区内成不成立**，两个角度：(i) 全城模型在该区 visit 上的 Δℓ——全城系数不动，把 ℓ(0.9) − ℓ(0) 按 visit 所在区加总，18 个区加起来正好等于全城的 Δℓ；(ii) 只用该区的 visit 重新跑一遍 profile likelihood（带自己的 month 和 surveyor 效应），得到该区自己的 β̂。"在全城 β̂ 处的损失" = ℓ_d(β̂_d) − ℓ_d(β̂)，2 以下说明该区和全城的 β 一致。注意 (ii) 的 cutpoint 和 FE 把区的整体水平吸收掉了，只剩**区内**的空间差异在识别 β；这个损失也没有考虑空间相关（全城同样算法在 β̂ 和网格点 0.9 之间就差 1.7），偏大。这些数字只进表和图的标题，曲线存在 `profile_curves.csv`，图上不画。
+
+**图（`fig4_*.png`）全部用全城的色标**：A、B 的 ×1 是全城平均率，D 的 0 是全城平均 w_R，E、F 的 0 是"修正没动"。所以 zoom in 之后仍然是在和全城比：整片粉就是比全城 chatty，整片蓝就是比全城举报少。没有任何量是按区重新算的。
 
 ---
 
