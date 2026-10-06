@@ -38,7 +38,8 @@ Writes  output/surface/dumping_{window}.tif      bands rate_raw, rate_corr (per 
         output/surface/litter_survey.tif         bands rating_adj, rating_mean, n_eff
         output/surface/litter_index_{date}.tif   appendix snapshot: E_rating_corr, E_rating_raw, log_lam_corr, log_lam_raw
         output/surface/surface_cbg.csv, summary.json
-        output/figures/fig3_maps.png (A, B, C), fig3b_zoom.png, A1_rating_snapshot.png, A2_windows_and_correction.png
+        output/figures/fig3_maps.png (A, B, C), fig5_dumping_corrected.png (B alone, planning districts named),
+        fig3b_zoom.png, A1_rating_snapshot.png, A2_windows_and_correction.png
 """
 
 import os
@@ -57,10 +58,11 @@ from scipy.stats import spearmanr
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib import patheffects
 
-from config import (OUT, FIG, FIELDS, SURF, CRS, EPOCH, GRID_RES, TAU, ALPHA, BETA_GRID, DATE_IN, DATE_OUT,
-                    LONG_WINDOWS, RATE_PER, SURVEY_MIN_NEFF, ZOOM, MUTED, CMAP_LITTER, CMAP_DUMPING,
-                    CMAP_PROPENSITY, CMAP_FACTOR, map_style, load_choices, ensure_dirs)
+from config import (DATA, OUT, FIG, FIELDS, SURF, CRS, EPOCH, GRID_RES, TAU, ALPHA, BETA_GRID, DATE_IN, DATE_OUT,
+                    LONG_WINDOWS, RATE_PER, SURVEY_MIN_NEFF, ZOOM, DISTRICT_FILE, DISTRICT_COL, INK, MUTED,
+                    CMAP_LITTER, CMAP_DUMPING, CMAP_PROPENSITY, CMAP_FACTOR, map_style, load_choices, ensure_dirs)
 from kernels import kernel_sum, accumulate_st, shrunk_log
 from ordinal import OrderedLogit
 from design import FE, design, spline_basis
@@ -314,7 +316,8 @@ def main():
         json.dump(summary, f, indent=2)
     _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v)
     print(f"\nDone in {time.time() - t_start:.0f} s. Saved → output/surface/dumping_*.tif, litter_survey.tif, litter_index_*.tif, "
-          f"surface_cbg.csv, summary.json; figures fig3_maps.png, fig3b_zoom.png, A1_rating_snapshot.png, A2_windows_and_correction.png")
+          f"surface_cbg.csv, summary.json; figures fig3_maps.png, fig5_dumping_corrected.png, fig3b_zoom.png, "
+          f"A1_rating_snapshot.png, A2_windows_and_correction.png")
 
 
 def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
@@ -340,6 +343,23 @@ def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
     for ax, (title, val, lab, lo, hi, cmap, tk, tl) in zip(axes, panels):
         show(ax, R.grid(val), R, geom, title, lab, lo, hi, cmap, ticks=tk, ticklabels=tl)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig3_maps.png"), dpi=170); plt.close(fig)
+
+    # fig5: the conclusion — B on its own, large, with the planning districts outlined and named; the colorbar
+    # carries both the multiple of the citywide corrected rate and the absolute rate
+    dist = gpd.read_file(os.path.join(DATA, DISTRICT_FILE)).to_crs(CRS)
+    rate = L["citywide_rate_corr"]
+    fig, ax = plt.subplots(figsize=(10.5, 11.5))
+    show(ax, R.grid(L["log_rel_corr"]), R, geom,
+         f"Estimated illegal dumping, {main}: 311 reports corrected for reporting propensity (β̂ = {beta_hat:.2f})",
+         f"multiple of the citywide corrected rate (above) and reports per year per {RATE_PER:,.0f} SafeGraph monthly stops "
+         f"(below; citywide {rate:.2f})\nblue = less dumping than the city average, red = more",
+         r_lo, r_hi, CMAP_DUMPING, ticks=r_ticks, ticklabels=[f"{l}\n{np.exp(t) * rate:.2f}" for l, t in zip(r_labels, r_ticks)])
+    dist.boundary.plot(ax=ax, color=INK, linewidth=0.9)
+    for _, d in dist.iterrows():
+        p = d.geometry.representative_point()
+        ax.text(p.x, p.y, d[DISTRICT_COL], fontsize=7.5, ha="center", va="center", color=INK,
+                path_effects=[patheffects.withStroke(linewidth=2.5, foreground="white")])
+    fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig5_dumping_corrected.png"), dpi=170); plt.close(fig)
 
     # fig3b: the reference window, with the underlying points overlaid
     inz = lambda x, y: (x >= ZOOM["x"][0]) & (x <= ZOOM["x"][1]) & (y >= ZOOM["y"][0]) & (y <= ZOOM["y"][1])

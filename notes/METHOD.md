@@ -72,8 +72,11 @@ field, map the field to the 1–4 Litter Index, and let the field survey
      filed at the citywide-average reporting propensity." B / A is the correction factor.
    - **C. The Litter Index on its own:** ratings with month and surveyor effects removed by one OLS on the
      survey, kernel-smoothed at the visit locations with the same kernel; nothing from 311.
-   The check is that B agrees with C better than A does. Appendix: the 120-day snapshot pushed through
-   the calibrated sigmoid (E[rating], how a surveyor would score a cell) for 2023-06-30 and 2025-12-31.
+   The check is that B agrees with C better than A does. B on its own, with the 18 planning districts
+   outlined and named and the colorbar in multiples of the citywide rate and in absolute rates, is the
+   conclusion map (`fig5_dumping_corrected.png`): the estimate of where dumping happens. Appendix: the
+   120-day snapshot pushed through the calibrated sigmoid (E[rating], how a surveyor would score a cell)
+   for 2023-06-30 and 2025-12-31.
 
 7. **District zooms** (`07_districts.py`): the same maps and the same calibration inside one City Planning
    Commission district (Center City = "Central", South Philadelphia = "South"; block groups assigned by their

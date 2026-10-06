@@ -182,6 +182,7 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 | `fig2_linearisation.png` | rating 对 log field 的 S 形曲线，raw vs corrected |
 | `05_cv.png` | out-of-fold log-lik 随 h 的变化 + block 层面的 calibration |
 | `fig3_maps.png` | **主图。** (A) 311 原样，2021–25 平均；(B) 修正后；(C) survey 自己。A、B 同一色标，都是以全城平均为 0 的 diverging 色标 |
+| `fig5_dumping_corrected.png` | **结论图。** 只有 B：用 β̂ 修正后的 311 估计出的真实 dumping 分布，2021–25 平均。叠加 18 个 planning district 的边界和名字；colorbar 同时标全城倍数（×0.3、×1、×3）和绝对值（每年每 1,000 stop 的举报数，全城 1.26） |
 | `fig3b_zoom.png` | 同样三张图放大到 West Fairmount Park 一带（和参考图同范围），A 上叠加了原始 report 点，C 上叠加了 survey visit 点 |
 | `A2_windows_and_correction.png` | 附录：2022–23 窗口的 A、B；修正系数 log(B/A) 地图；w_R 地图 |
 | `A1_rating_snapshot.png` | 附录：120 天 snapshot 推过 sigmoid 的 E[rating]，修正差，2025 extrapolation |
@@ -290,6 +291,8 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 **C：survey 自己。** 只用 72,084 次 visit：先用一个 OLS 去掉 month 和 surveyor 的效应（它们解释了 rating 方差的 33%），再把调整后的 rating 在 visit 位置上用同样的 kernel 平滑。kernel 里有效 visit 少于 10 的格子留空（只有 1.5%）。这张图不含任何 311 信息。
 
 **为什么要分开：** A 和 B 是我们的产出，C 是独立的参照。如果 B 比 A 更像 C，修正就是朝对的方向走的。
+
+**结论图（`fig5_dumping_corrected.png`）：** 就是 B 单独放大一张，叠上 planning district 的边界和名字。它回答的是最初的问题："费城哪里真的在倾倒"。读法：红 = 修正后的举报率高于全城平均，蓝 = 低于；colorbar 下面一行是绝对值。
 
 **附录：** 旧的做法是把某日期前 120 天的 311 field 推过 Step 3 的 sigmoid，得到 E[rating]（"如果 surveyor 来打分会打几分"）。它回答的是"311 能多好地复现 survey"，保留为附录对照（`A1_rating_snapshot.png`），不是主产出。
 
