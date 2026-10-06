@@ -26,11 +26,11 @@ pushed through the rating model (E[rating] = how a surveyor would score the
 cell). It answers "how well does 311 reproduce the survey", not "where is the
 dumping".
 
-Colours (config.py): litter maps on CMAP_LITTER (diverging, centred on the
-citywide mean); report rates on CMAP_REPORTS (sequential, dark = quiet, bright
-= chatty, ticks in multiples of the citywide rate); reporting propensity and
-the correction factor on the CMAP_PROPENSITY / CMAP_FACTOR pair (orange =
-chatty places, purple = quiet places, in both).
+Colours (config.py): what is on the ground — litter (CMAP_LITTER) and dumping
+report rates (CMAP_DUMPING) — on the same diverging red–blue scale centred on
+the citywide mean / rate; how people report — reporting propensity and the
+correction factor — on the CMAP_PROPENSITY / CMAP_FACTOR pair (pink = chatty
+places, green = quiet places, in both).
 
 Writes  output/surface/dumping_{window}.tif      bands rate_raw, rate_corr (per year per 1,000 stops),
                                                   log_rel_raw, log_rel_corr (log of rate / citywide rate),
@@ -59,7 +59,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from config import (OUT, FIG, FIELDS, SURF, CRS, EPOCH, GRID_RES, TAU, ALPHA, BETA_GRID, DATE_IN, DATE_OUT,
-                    LONG_WINDOWS, RATE_PER, SURVEY_MIN_NEFF, ZOOM, MUTED, CMAP_LITTER, CMAP_REPORTS,
+                    LONG_WINDOWS, RATE_PER, SURVEY_MIN_NEFF, ZOOM, MUTED, CMAP_LITTER, CMAP_DUMPING,
                     CMAP_PROPENSITY, CMAP_FACTOR, map_style, load_choices, ensure_dirs)
 from kernels import kernel_sum, accumulate_st, shrunk_log
 from ordinal import OrderedLogit
@@ -119,13 +119,12 @@ def sym_lim(*arrays, q=0.90):
 
 
 def rate_scale(*arrays):
-    """Colour range and ticks for a log report rate relative to the citywide rate: the 2nd–99.5th
-    percentile range, ticks at round multiples (×0.03 … ×30) of the citywide rate."""
-    vals = np.concatenate([np.asarray(a).ravel() for a in arrays])
-    vmin, vmax = [float(q) for q in np.nanquantile(vals, [0.02, 0.995])]
+    """Symmetric colour range for a log report rate centred on the citywide rate, with ticks at round
+    multiples (×0.1 … ×10) of that rate."""
+    lim = sym_lim(*arrays)
     mult = np.array([0.03, 0.1, 0.3, 1, 3, 10, 30])
-    t = np.log(mult); keep = (t >= vmin) & (t <= vmax)
-    return vmin, vmax, t[keep], [f"×{m:g}" for m in mult[keep]]
+    t = np.log(mult); keep = np.abs(t) <= lim
+    return -lim, lim, t[keep], [f"×{m:g}" for m in mult[keep]]
 
 
 # =============================================================================
@@ -323,16 +322,17 @@ def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
     horizontal colorbars, titles top-left. One colour family per kind of data (config.py)."""
     main = "2021-2025"; other = [k for k in LT if k != main][0]
     L, Lo = LT[main], LT[other]
-    # report rates: one sequential scale shared by A and B (and the two-year window), ticks in × citywide rate
+    # dumping report rates: one diverging scale centred on the citywide rate, shared by A and B (and the
+    # two-year window), ticks in multiples of that rate
     r_lo, r_hi, r_ticks, r_labels = rate_scale(L["log_rel_raw"], L["log_rel_corr"])
-    lab_rate = "report rate as a multiple of the citywide rate   (dark = quiet, bright = chatty)"
+    lab_rate = "dumping report rate as a multiple of the citywide rate   (blue = fewer, red = more)"
     # litter: diverging, centred on the citywide mean
     c_mean = float(np.nanmean(S["rating_adj"]))
     C = S["rating_adj"] - c_mean
     c_lim = sym_lim(C)
     lab_c = f"adjusted rating − citywide mean ({c_mean:.2f}), rating points   (blue = cleaner, red = dirtier)"
-    panels = [(f"(A) 311 dumping reports as filed, {main} average", L["log_rel_raw"], lab_rate, r_lo, r_hi, CMAP_REPORTS, r_ticks, r_labels),
-              (f"(B) corrected for reporting propensity, β̂ = {beta_hat:.2f}", L["log_rel_corr"], lab_rate, r_lo, r_hi, CMAP_REPORTS, r_ticks, r_labels),
+    panels = [(f"(A) 311 dumping reports as filed, {main} average", L["log_rel_raw"], lab_rate, r_lo, r_hi, CMAP_DUMPING, r_ticks, r_labels),
+              (f"(B) corrected for reporting propensity, β̂ = {beta_hat:.2f}", L["log_rel_corr"], lab_rate, r_lo, r_hi, CMAP_DUMPING, r_ticks, r_labels),
               ("(C) Litter Index survey on its own, 2022–23 (month + surveyor adjusted)", C, lab_c, -c_lim, c_lim, CMAP_LITTER, None, None)]
 
     # fig3: citywide
@@ -351,7 +351,7 @@ def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
         show(ax, R.grid(val), R, geom, title, lab, lo, hi, cmap, zoom=ZOOM, ticks=tk, ticklabels=tl)
     fig.suptitle(f"{ZOOM['name']} and surroundings — the same three maps at neighbourhood scale", x=0.01, ha="left",
                  fontsize=11, y=0.995)
-    axes[0].scatter(e["x"], e["y"], s=5, marker="x", c="#00e5ff", linewidths=0.5, alpha=0.7,
+    axes[0].scatter(e["x"], e["y"], s=4, marker="x", c="black", linewidths=0.4, alpha=0.45,
                     label=f"311 dumping reports, {main} ({len(e):,})")
     axes[2].scatter(vz["x"], vz["y"], s=3, marker="o", facecolors="#ffd400", edgecolors="black", linewidths=0.25,
                     alpha=0.8, label=f"survey visits, 2022–23 ({len(vz):,})")
@@ -359,19 +359,19 @@ def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
         ax.legend(loc="upper left", fontsize=8, frameon=True, framealpha=0.9, edgecolor=MUTED)
     fig.tight_layout(rect=(0, 0, 1, 0.97)); fig.savefig(os.path.join(FIG, "fig3b_zoom.png"), dpi=170); plt.close(fig)
 
-    # A2: the two-year window, the correction factor, w_R — orange = chatty places, purple = quiet, in both
+    # A2: the two-year window, the correction factor, w_R — pink = chatty places, green = quiet, in both
     cf = np.log(L["correction_factor"]); cf_lim = sym_lim(cf, q=0.99)
     z = np.load(os.path.join(OUT, "wR_raster.npz")); W = z["wR"]; w_lim = sym_lim(W)
     fig, axes = plt.subplots(2, 2, figsize=(13, 13))
-    show(axes[0, 0], R.grid(Lo["log_rel_raw"]), R, geom, f"311 as filed, {other} average", lab_rate, r_lo, r_hi, CMAP_REPORTS, ticks=r_ticks, ticklabels=r_labels)
-    show(axes[0, 1], R.grid(Lo["log_rel_corr"]), R, geom, f"corrected, {other} average", lab_rate, r_lo, r_hi, CMAP_REPORTS, ticks=r_ticks, ticklabels=r_labels)
+    show(axes[0, 0], R.grid(Lo["log_rel_raw"]), R, geom, f"311 as filed, {other} average", lab_rate, r_lo, r_hi, CMAP_DUMPING, ticks=r_ticks, ticklabels=r_labels)
+    show(axes[0, 1], R.grid(Lo["log_rel_corr"]), R, geom, f"corrected, {other} average", lab_rate, r_lo, r_hi, CMAP_DUMPING, ticks=r_ticks, ticklabels=r_labels)
     show(axes[1, 0], R.grid(cf), R, geom, f"correction factor, {main}: log(corrected / raw)",
-         "orange = reports discounted (chatty neighbourhoods); purple = scaled up (quiet ones)", -cf_lim, cf_lim, CMAP_FACTOR)
+         "pink = reports discounted (chatty neighbourhoods); green = scaled up (quiet ones)", -cf_lim, cf_lim, CMAP_FACTOR)
     im = axes[1, 1].imshow(W, origin="lower", extent=[z["x"][0], z["x"][-1], z["y"][0], z["y"][-1]], cmap=CMAP_PROPENSITY,
                            vmin=-w_lim, vmax=w_lim, interpolation="nearest")
     map_style(axes[1, 1], geom, f"reporting propensity w_R from street poles (h_w = {HW0} m)")
     cb = plt.colorbar(im, ax=axes[1, 1], orientation="horizontal", shrink=0.75, pad=0.08, aspect=35)
-    cb.set_label("log outage reports per pole, centred   (orange = chatty, purple = quiet)", fontsize=8, color=MUTED)
+    cb.set_label("log outage reports per pole, centred   (pink = chatty, green = quiet)", fontsize=8, color=MUTED)
     cb.ax.tick_params(labelsize=8, colors=MUTED)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "A2_windows_and_correction.png"), dpi=150); plt.close(fig)
 

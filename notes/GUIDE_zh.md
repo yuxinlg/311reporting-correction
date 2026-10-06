@@ -168,10 +168,9 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 
 ### 2.7 `figures/`
 
-**颜色约定（`config.py` 里的四个 CMAP 常数）：** 一类数据一种颜色，看到颜色就知道图里是什么。
-- **Litter（survey rating、E[rating]）**：RdBu_r，以全城均值为 0，蓝 = 更干净，红 = 更脏。
-- **311 report 率（A、B）**：magma，sequential，黑紫 = quiet（举报少），亮黄 = chatty（举报多）；colorbar 刻度直接标 ×0.1、×0.3、×1、×3 倍全城平均。
-- **Reporting propensity w_R 和修正系数**：PuOr 一族，橙 = chatty 的社区，紫 = quiet 的社区。两张图里同一个地方同一种颜色：w_R 高（橙）的地方，修正时举报被打折（也是橙）。
+**颜色约定（`config.py` 里的四个 CMAP 常数）：** 两族颜色，一族是"地上有什么"，一族是"人怎么举报"。
+- **地上有什么：litter（C 图、E[rating]）和 311 dumping 率（A、B）**：都用 RdBu_r，以全城均值 / 全城平均率为 0，蓝 = 更干净 / 举报更少，红 = 更脏 / 举报更多。A、B 的 colorbar 刻度直接标 ×0.1、×0.3、×1、×3 倍全城平均。
+- **人怎么举报：reporting propensity w_R 和修正系数**：PiYG 一族，粉 = chatty 的社区，绿 = quiet 的社区。两张图里同一个地方同一种颜色：w_R 高（粉）的地方，修正时举报被打折（也是粉）。
 
 | 文件 | 内容 |
 |---|---|

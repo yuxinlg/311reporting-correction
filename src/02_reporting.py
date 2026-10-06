@@ -141,7 +141,7 @@ def main():
                    interpolation="nearest")
     map_style(ax, geom, f"reporting propensity w_R from street poles, h_w = {HW0} m")
     cb = plt.colorbar(im, ax=ax, orientation="horizontal", shrink=0.75, pad=0.08, aspect=35)
-    cb.set_label("log outage reports per pole, centred   (orange = chatty, purple = quiet)", fontsize=8, color=MUTED)
+    cb.set_label("log outage reports per pole, centred   (pink = chatty, green = quiet)", fontsize=8, color=MUTED)
     cb.ax.tick_params(labelsize=8, colors=MUTED)
     ax = axes[1]
     ax.scatter(cc["log_rate"] - cc["log_rate"].mean(), cc["wR_centroid"], s=6, color=C1, alpha=0.5)
