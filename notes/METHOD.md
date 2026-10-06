@@ -1,6 +1,6 @@
 # Method — point-level 311 dumping correction, calibrated to the Litter Index
 
-One page. Every number here is produced by `src/01_data.py` … `src/06_surface.py`
+One page. Every number here is produced by `src/01_data.py` … `src/07_districts.py`
 from the raw inputs in `data/`; nothing is taken from the archived pipeline.
 
 ## The question
@@ -12,7 +12,7 @@ each dumping report by it, smooth the reweighted reports into a continuous
 field, map the field to the 1–4 Litter Index, and let the field survey
 (ground truth) tell us how strong the reweighting should be.
 
-## Six steps
+## Seven steps
 
 1. **Reporting propensity from poles** (`02_reporting.py`)
    `w_R(s) = log[ Σ_outages K_hw(|s−s_j|) / Σ_poles K_hw(|s−s_p|) ] − mean over poles`
@@ -74,6 +74,17 @@ field, map the field to the 1–4 Litter Index, and let the field survey
      survey, kernel-smoothed at the visit locations with the same kernel; nothing from 311.
    The check is that B agrees with C better than A does. Appendix: the 120-day snapshot pushed through
    the calibrated sigmoid (E[rating], how a surveyor would score a cell) for 2023-06-30 and 2025-12-31.
+
+7. **District zooms** (`07_districts.py`): the same maps and the same calibration inside one City Planning
+   Commission district (Center City = "Central", South Philadelphia = "South"; block groups assigned by their
+   representative point, reports, visits and cells follow their block group). Per district: report rate as
+   filed and corrected from the points and the district's exposure, as multiples of the citywide rate; mean
+   w_R at its reports; block-group Spearman of A and B with C; the citywide model's log-likelihood gain on the
+   district's visits, ℓ_d(0.9) − ℓ_d(0) with the citywide coefficients (the 18 districts sum to the citywide
+   Δℓ on the grid); and the district's own β̂ from the profile likelihood refitted on its visits alone with its
+   own month and surveyor effects. The loss ℓ_d(β̂_d) − ℓ_d(β̂) says whether the district is consistent with
+   the citywide β; it is a naive profile quantity (no allowance for spatial correlation; citywide the same
+   quantity is 1.7 between β̂ and the grid point 0.9).
 
 ## Results (run of 2026-10-05; `output/choices.json`, `calib/`, `cv/`, `surface/`)
 
@@ -142,6 +153,34 @@ slope 1.02 (raw) and 1.01 (corrected), correlation 0.86 → 0.88, block RMSE 0.1
 - Appendix snapshot (120-day field through the sigmoid, `A1_rating_snapshot.png`): E[rating] median
   1.26 on 2023-06-30; block-group Spearman with observed 0.71 (raw 0.68); 0.74 / 0.70 on 2025-12-31.
 
+**District zooms** (`districts/districts.csv`, `fig4_central.png`, `fig4_south.png`; 2021–25 window)
+
+| | Center City (Central) | South Philadelphia (South) | citywide |
+|---|---|---|---|
+| block groups / reports / visits | 143 / 13,562 / 5,022 | 111 / 13,714 / 4,710 | 1,335 / 116,772 / 72,084 |
+| mean w_R at reports (0 = citywide) | +0.22 | +0.52 | +0.05 |
+| report rate as filed → corrected, × citywide | 0.61 → 0.51 | 1.71 → 1.08 | 1 → 1 |
+| district correction factor; cell p10 / p50 / p90 | 0.90; 0.64 / 0.93 / 1.31 | 0.68; 0.56 / 0.67 / 1.39 | 1.08; 0.65 / 0.97 / 1.85 |
+| survey: observed mean rating; map C mean | 1.25; 1.38 | 1.66; 1.51 | 1.56; 1.49 |
+| block-group Spearman with C, raw → corrected | 0.05 → −0.01 | 0.22 → 0.28 | 0.66 → 0.69 |
+| citywide model's Δℓ on the district's visits (share of +609) | +72 (12%) | +132 (22%) | +609 |
+| own β̂; Δℓ_d; loss at the citywide β̂ | 1.57; +23; 9.9 | 0.31; +1; 3.6 | 0.86; +610; 1.7 |
+
+- South Philadelphia is the chattiest large district (mean w_R +0.52; only Central Northeast is higher): it
+  files 1.7× the citywide report rate per stop and the correction brings it to 1.08×. The factor is nearly
+  uniform inside the district (p10–p50 0.56–0.67), so there the correction is a level shift: the citywide
+  model's largest single gain comes from these visits (+132), while the profile refitted on them alone is
+  flat (Δℓ +1; β is not identified from within-district variation). Block-group agreement with the survey
+  is weak on either map (0.22 → 0.28).
+- Center City files 0.61× the citywide rate per stop (its SafeGraph exposure is the city's largest) and is
+  also chatty (+0.22), so the correction lowers it to 0.51×. w_R varies block to block inside the district
+  (panel D) and the district alone would correct harder (own β̂ 1.57, Δℓ +23; naive loss 9.9 at the citywide
+  β̂). The survey has almost no spatial structure to rank inside Center City (adjusted mean 1.38; block-group
+  Spearman ≈ 0 for both maps), so the zoom cannot show whether the correction improves the ranking there.
+- Closure: the 18 district gains sum to the citywide ℓ(0.9) − ℓ(0) = +609 exactly. The gain is positive in
+  15 districts; the largest are South (+132), River Wards (+103), Lower North (+101) and North (+88);
+  Upper Northwest loses 70.
+
 **Checks that passed:** sparse-vs-dense unit test (1.6e-15); interior maximum of ℓ(β) at every h;
 CI excludes 0; −c/b inside the CI; torus p = 0; CV gain positive in 9/10 folds and beyond its SE;
 in-fold β inside the CI; block calibration slope ≈ 1; corrected surface ranks block groups better
@@ -173,6 +212,7 @@ than the raw one.
 ## Inputs
 
 Raw data only, via `data/` symlinks: 311 shapefiles (dumping, outage), the pole
-inventory, TIGER block groups, the Litter Index survey CSV, and the SafeGraph
+inventory, TIGER block groups, the Litter Index survey CSV, the SafeGraph
 stop count per block group (`alloc_avg_s_cnt` in `cov_cbg.geojson`) as the
-exposure denominator.
+exposure denominator, and the City Planning Commission's 18 planning districts
+(`Planning_Districts.geojson`) for the district zooms.

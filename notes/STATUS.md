@@ -16,6 +16,7 @@ walkthrough in Chinese: every output file, every step, every number.
 | `src/04_calibrate.py` | profile likelihood for β, block-bootstrap CI, −c/b check, torus-shift null, outage placebo, sensitivity rows | 10 min first run (8 worker processes), 2 min with caches | `calib/table1.csv`, `calib/summary.json`, `figures/fig1_*`, `fig2_*` |
 | `src/05_validate.py` | buffered spatially blocked 10-fold CV: raw vs corrected (β in-fold) | 13 min | `cv/table2.csv`, `cv/summary.json`, `figures/05_cv.png` |
 | `src/06_surface.py` | the maps: 311 as filed (A) and corrected (B) as long-term rates for 2021–25 and 2022–23, the survey on its own (C), their agreement; appendix snapshot through the sigmoid | 30 s | `surface/dumping_*.tif`, `litter_survey.tif`, `litter_index_*.tif`, `surface_cbg.csv`, `figures/fig3_maps.png`, `A1_*`, `A2_*` |
+| `src/07_districts.py` | the same maps and the same calibration inside one planning district: Center City ("Central") and South Philadelphia ("South") get figures, all 18 districts get a table row (rates, w_R, agreement with the survey, the citywide model's gain on the district's visits, the district's own β̂) | 1 min | `districts/districts.csv`, `profile_curves.csv`, `cbg_district.csv`, `summary.json`, `figures/fig4_central.png`, `fig4_south.png` |
 
 Headline (2026-10-05): β̂ = 0.86, 95% CI [0.63, 1.08]; the correction adds Δℓ = +610 in sample and
 +0.0137 ± 0.0042 log-likelihood per visit out of sample (9/10 spatial folds); torus-shift null p = 0.
@@ -27,7 +28,7 @@ kernel sums), `src/ordinal.py` (proportional-odds logit), `src/design.py`
 live in `output/choices.json`. Logs of each run: `output/logs/run_0X.log`.
 
 ```bash
-cd /Users/yuxin/Dropbox/DDDI/311reporting-correction && for s in 01_data 02_reporting 03_field 04_calibrate 05_validate 06_surface; do python -u src/$s.py 2>&1 | tee output/logs/run_${s%%_*}.log; done
+cd /Users/yuxin/Dropbox/DDDI/311reporting-correction && for s in 01_data 02_reporting 03_field 04_calibrate 05_validate 06_surface 07_districts; do python -u src/$s.py 2>&1 | tee output/logs/run_${s%%_*}.log; done
 ```
 
 Environment: miniconda base, Python 3.12; numpy, pandas, geopandas, scipy,
@@ -43,6 +44,9 @@ patsy, rasterio, matplotlib. No JAX / NumPyro / statsmodels.
 - Fig 1 profile curves + bootstrap; Fig 2 E[rating | log λ̂] raw vs corrected;
   Fig 3 the three maps: 311 as filed (A), corrected (B), survey on its own (C);
   appendix A1 the sigmoid snapshot, A2 the two-year window, correction factor, w_R.
+- Table 3 `output/districts/districts.csv` and Fig 4 `fig4_central.png`, `fig4_south.png`:
+  the maps and the calibration inside Center City and South Philadelphia (planning
+  districts), one table row per district for all 18.
 
 ## History
 

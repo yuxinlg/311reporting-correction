@@ -1,7 +1,7 @@
 # 311 reporting correction：方法说明与结果解读（零基础版）
 
 > 写法约定：technical terms 用英文，直觉和解释用中文。
-> 对应代码：`src/01_data.py` … `src/06_surface.py`；对应结果：`output/`。
+> 对应代码：`src/01_data.py` … `src/07_districts.py`；对应结果：`output/`。
 > 本文假设读者没有任何 context。每个文件、每个数字都从头解释。
 
 ---
@@ -26,7 +26,7 @@
 
 ## 1. 整条链怎么走
 
-六个脚本，严格按顺序跑，每个只做一件事：
+七个脚本，严格按顺序跑，每个只做一件事：
 
 ```
 原始数据
@@ -43,6 +43,8 @@ output/fields/h*.npz
    │  05_validate.py      留出一块地区不看，检验预测力       ──►  output/cv/
    ▼
    │  06_surface.py       三张图：311 原始、311 修正后、survey 自己   ──►  output/surface/
+   ▼
+   │  07_districts.py     同样的图和 calibration 放大到 Center City / South Philly   ──►  output/districts/
 ```
 
 重要的分工：**03 只做几何（kernel 求和），04 和 05 只做统计（回归）。** 03 把所有可能用到的求和一次算完存下来，04/05 就不用再碰坐标。这就是为什么 `fields/` 里的 npz 文件那么重要，也是它"存那么多列"的原因，后面详细讲。
@@ -183,6 +185,16 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 | `fig3b_zoom.png` | 同样三张图放大到 West Fairmount Park 一带（和参考图同范围），A 上叠加了原始 report 点，C 上叠加了 survey visit 点 |
 | `A2_windows_and_correction.png` | 附录：2022–23 窗口的 A、B；修正系数 log(B/A) 地图；w_R 地图 |
 | `A1_rating_snapshot.png` | 附录：120 天 snapshot 推过 sigmoid 的 E[rating]，修正差，2025 extrapolation |
+| `fig4_central.png`, `fig4_south.png` | **按区放大。** Center City / South Philly 各一张：(A)(B)(C) 用 fig3 同样的色标放大到该区并画出区界，A 叠加 report 点，C 叠加 visit 点；(D) w_R；(E) 修正系数；(F) 只用该区 visit 重跑的 profile 曲线，灰带是全城 β̂ 的 95% CI |
+
+### 2.8 `districts/`：07 的产出，按 planning district 放大
+
+| 文件 | 内容 |
+|---|---|
+| `districts.csv` | **论文 Table 3。** 一行一个 planning district（18 个）+ 全城一行：街区 / report / visit 数；report 位置的平均 w_R；举报率 raw / corrected（绝对值和全城倍数）；区修正系数和格子分位数；survey 平均；街区和格子层面与 C 的 Spearman；全城模型在该区 visit 上的 Δℓ 及占全城的份额；区自己的 β̂ / Δℓ / 在全城 β̂ 处的损失 |
+| `profile_curves.csv` | 每个区自己的 ℓ_d(β) − ℓ_d(0) 曲线，β 从 −0.2 到 2.0 |
+| `cbg_district.csv` | 街区 → district 对应表（街区的 representative point 落在哪个区） |
+| `summary.json` | 同 districts.csv 的内容，JSON 格式，外加全城率和 β̂ |
 
 ---
 
@@ -281,6 +293,17 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 
 **附录：** 旧的做法是把某日期前 120 天的 311 field 推过 Step 3 的 sigmoid，得到 E[rating]（"如果 surveyor 来打分会打几分"）。它回答的是"311 能多好地复现 survey"，保留为附录对照（`A1_rating_snapshot.png`），不是主产出。
 
+### 3.7 Step 7：按 planning district 放大（`07_districts.py`）
+
+把 06 的三张图和 04 的 calibration 限制在一个 planning district（费城规划委员会的 18 个分区）里看。Center City 是 **"Central"** 区，South Philly 是 **"South"** 区（体育场和 Navy Yard 是单独的 "Lower South"）。街区按它的 representative point 落在哪个区归属，report、visit、格子都跟着街区走，所以每个数都是全城数字的子集。
+
+每个区算五样东西：
+- **规模**：街区数、report 数（2021–25）、visit 数。
+- **举报倾向**：该区 report 位置上 w_R 的平均值（0 = 全城平均，正 = 爱举报）。
+- **举报率**：直接用点和该区的 exposure 算（不经 kernel），raw 和 corrected 各一个，以全城率的倍数表示；corrected ÷ raw 是该区的修正系数。
+- **和 survey 的吻合**：该区街区层面 A、B 和 C 的 Spearman。修正在这个区内有没有让排序更接近 survey？
+- **β 在区内成不成立**，两个角度：(i) 全城模型在该区 visit 上的 Δℓ——全城系数不动，把 ℓ(0.9) − ℓ(0) 按 visit 所在区加总，18 个区加起来正好等于全城的 Δℓ；(ii) 只用该区的 visit 重新跑一遍 profile likelihood（带自己的 month 和 surveyor 效应），得到该区自己的 β̂。"在全城 β̂ 处的损失" = ℓ_d(β̂_d) − ℓ_d(β̂)，2 以下说明该区和全城的 β 一致。注意 (ii) 的 cutpoint 和 FE 把区的整体水平吸收掉了，只剩**区内**的空间差异在识别 β；这个损失也没有考虑空间相关（全城同样算法在 β̂ 和网格点 0.9 之间就差 1.7），偏大。
+
 ---
 
 ## 4. 结果解读
@@ -366,6 +389,24 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 2. **不是随便一张地图都行**：torus null p = 0。
 3. **Out-of-sample**：9/10 fold，+0.0137 ± 0.0042 ℓ/visit，in-fold β 和全样本一致。
 4. **区域层面**：街区平均的 Spearman 0.68 → 0.71，block calibration slope ≈ 1。
+
+### 4.8 Center City 和 South Philly（`districts/districts.csv`，`fig4_central.png`，`fig4_south.png`）
+
+| | Center City（Central） | South Philly（South） | 全城 |
+|---|---|---|---|
+| 街区 / report / visit | 143 / 13,562 / 5,022 | 111 / 13,714 / 4,710 | 1,335 / 116,772 / 72,084 |
+| report 位置的平均 w_R（0 = 全城） | +0.22 | +0.52 | +0.05 |
+| 举报率 raw → corrected（全城 = 1） | 0.61 → 0.51 | 1.71 → 1.08 | 1 → 1 |
+| 区修正系数；格子 p10 / p50 / p90 | 0.90；0.64 / 0.93 / 1.31 | 0.68；0.56 / 0.67 / 1.39 | 1.08；0.65 / 0.97 / 1.85 |
+| survey 实际平均 rating；C 图平均 | 1.25；1.38 | 1.66；1.51 | 1.56；1.49 |
+| 街区 Spearman 与 C，raw → corrected | 0.05 → −0.01 | 0.22 → 0.28 | 0.66 → 0.69 |
+| 全城模型在该区 visit 上的 Δℓ（占 +609 的份额） | +72（12%） | +132（22%） | +609 |
+| 区自己的 β̂；Δℓ_d；在全城 β̂ 处的损失 | 1.57；+23；9.9 | 0.31；+1；3.6 | 0.86；+610；1.7 |
+
+**怎么读：**
+- **South Philly 是全城最爱举报的大区**（w_R +0.52，只有 Central Northeast 更高）：每单位人流的举报是全城的 1.7 倍，修正后降到 1.08 倍，基本就是平均水平。区内修正系数很均匀（p10–p50 0.56–0.67，E 图整片粉），所以修正在这里是一个**整体下移**：全城模型最大的一块改善就来自这些 visit（+132），但只用区内 visit 重跑 profile 时曲线是平的（Δℓ +1）——区内 w_R 的空间差异太小，识别不了 β。街区排序和 survey 的吻合两张图都弱（0.22 → 0.28）。
+- **Center City 的举报率只有全城的 0.61 倍**（它的 SafeGraph 人流是全城最大的，分母大），同时也偏爱举报（+0.22），修正后降到 0.51 倍。区内 w_R 有明显的块状差异（D 图），单独用这个区估的话会修得更重（β̂ 1.57，Δℓ +23；在全城 β̂ 处损失 9.9，这个数没考虑空间相关，偏大）。survey 在 Center City 内几乎没有空间结构可排（调整后平均 1.38，街区 Spearman 两张图都 ≈ 0），所以这里看不出修正有没有改善排序。
+- **闭合检验**：18 个区的 Δℓ 加起来正好是全城网格上的 ℓ(0.9) − ℓ(0) = +609。15 个区为正，最大的是 South（+132）、River Wards（+103）、Lower North（+101）、North（+88）；Upper Northwest 是 −70。
 
 ---
 

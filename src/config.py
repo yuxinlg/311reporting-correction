@@ -25,6 +25,7 @@ FIELDS = os.path.join(OUT, "fields")
 CALIB = os.path.join(OUT, "calib")
 CVDIR = os.path.join(OUT, "cv")
 SURF = os.path.join(OUT, "surface")
+DIST = os.path.join(OUT, "districts")
 CHOICES = os.path.join(OUT, "choices.json")
 
 CRS = 26918                                  # UTM zone 18N, metres
@@ -76,6 +77,12 @@ RATE_PER = 1000.0                            # map unit: reports per year per 1,
 SURVEY_MIN_NEFF = 10                         # survey-only map is blank where the kernel sees fewer visits
 ZOOM = {"name": "West Fairmount Park", "x": (480500, 484500), "y": (4423800, 4429200)}   # m, for the zoomed figure
 
+# --- district zooms (07): the same maps and calibration inside one planning district ---
+DISTRICT_FILE = "Planning_Districts.geojson"  # City Planning Commission districts (18), symlink in data/
+DISTRICT_COL = "dist_name"
+DISTRICTS = {"Central": "Center City", "South": "South Philadelphia"}   # zoomed figures: district -> label
+ZOOM_PAD = 300                               # m of margin around a district's bounding box
+
 # --- Stage 3: rating model ----------------------------------------------------
 SPLINE_DF = 5
 RIDGE_SURV = 1.0
@@ -107,7 +114,7 @@ CMAP_FACTOR = "PiYG"         # correction factor log(corrected / raw): pink = di
 
 
 def ensure_dirs():
-    for d in [OUT, FIG, FIELDS, CALIB, CVDIR, SURF]:
+    for d in [OUT, FIG, FIELDS, CALIB, CVDIR, SURF, DIST]:
         os.makedirs(d, exist_ok=True)
 
 
