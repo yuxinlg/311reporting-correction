@@ -173,6 +173,7 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 **颜色约定（`config.py` 里的四个 CMAP 常数）：** 两族颜色，一族是"地上有什么"，一族是"人怎么举报"。
 - **地上有什么：litter（C 图、E[rating]）和 311 dumping 率（A、B）**：都用 RdBu_r，以全城均值 / 全城平均率为 0，蓝 = 更干净 / 举报更少，红 = 更脏 / 举报更多。A、B 的 colorbar 刻度直接标 ×0.1、×0.3、×1、×3 倍全城平均。
 - **人怎么举报：reporting propensity w_R 和修正系数**：PiYG 一族，粉 = chatty 的社区，绿 = quiet 的社区。两张图里同一个地方同一种颜色：w_R 高（粉）的地方，修正时举报被打折（也是粉）。
+- **修正动了多少：差值图 B − A（`CMAP_DELTA`）**：BrBG，棕 = 修正拿掉了举报，青绿 = 加上了举报。单独一族，免得和上面两族混。
 
 | 文件 | 内容 |
 |---|---|
@@ -183,7 +184,7 @@ log λ̂_β(visit i) = log( (num[i, j] + α) / (den[i] + α / λ̄_β) )      α
 | `05_cv.png` | out-of-fold log-lik 随 h 的变化 + block 层面的 calibration |
 | `fig3_maps.png` | **主图。** (A) 311 原样，2021–25 平均；(B) 修正后；(C) survey 自己。A、B 同一色标，都是以全城平均为 0 的 diverging 色标 |
 | `fig5_dumping_corrected.png` | **结论图。** 只有 B：用 β̂ 修正后的 311 估计出的真实 dumping 分布，2021–25 平均。叠加 18 个 planning district 的边界和名字；colorbar 同时标全城倍数（×0.3、×1、×3）和绝对值（每年每 1,000 stop 的举报数，全城 1.26） |
-| `fig5b_correction_delta.png` | **修正前后的差值。** B − A，绝对单位（每年每 1,000 stop），同样叠加 district 边界和名字。粉 = 修正拿掉了举报（chatty 的地方），绿 = 修正加上了举报（quiet 的地方）。和 A2 里的修正系数不同：系数是倍数，这张是绝对量，举报本来就少的地方倍数再大差值也小 |
+| `fig5b_correction_delta.png` | **修正前后的差值。** B − A，绝对单位（每年每 1,000 stop），同样叠加 district 边界和名字。棕 = 修正拿掉了举报（chatty 的地方），青绿 = 修正加上了举报（quiet 的地方）。和 A2 里的修正系数不同：系数是倍数，这张是绝对量，举报本来就少的地方倍数再大差值也小 |
 | `fig3b_zoom.png` | 同样三张图放大到 West Fairmount Park 一带（和参考图同范围），A 上叠加了原始 report 点，C 上叠加了 survey visit 点 |
 | `A2_windows_and_correction.png` | 附录：2022–23 窗口的 A、B；修正系数 log(B/A) 地图；w_R 地图 |
 | `A1_rating_snapshot.png` | 附录：120 天 snapshot 推过 sigmoid 的 E[rating]，修正差，2025 extrapolation |
@@ -295,7 +296,7 @@ P(rating ≥ k) = σ( η − κ_k ),   k = 2, 3, 4
 
 **结论图（`fig5_dumping_corrected.png`）：** 就是 B 单独放大一张，叠上 planning district 的边界和名字。它回答的是最初的问题："费城哪里真的在倾倒"。读法：红 = 修正后的举报率高于全城平均，蓝 = 低于；colorbar 下面一行是绝对值。
 
-**差值图（`fig5b_correction_delta.png`）：** B − A，绝对单位。回答"修正到底动了哪里、动了多少"。粉色是举报被拿掉的地方（爱打 311 的社区），绿色是被补上的地方（不爱打的社区）。注意它是绝对量，和修正系数（倍数）不同：Upper Far Northeast 的系数可能很大，但那里举报本来就少，差值接近 0；River Wards 系数 1.6、举报本来就多，差值就大。
+**差值图（`fig5b_correction_delta.png`）：** B − A，绝对单位。回答"修正到底动了哪里、动了多少"。棕色是举报被拿掉的地方（爱打 311 的社区），青绿色是被补上的地方（不爱打的社区）。注意它是绝对量，和修正系数（倍数）不同：Upper Far Northeast 的系数可能很大，但那里举报本来就少，差值接近 0；River Wards 系数 1.6、举报本来就多，差值就大。
 
 **附录：** 旧的做法是把某日期前 120 天的 311 field 推过 Step 3 的 sigmoid，得到 E[rating]（"如果 surveyor 来打分会打几分"）。它回答的是"311 能多好地复现 survey"，保留为附录对照（`A1_rating_snapshot.png`），不是主产出。
 

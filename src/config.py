@@ -111,6 +111,7 @@ CMAP_LITTER = "RdBu_r"       # survey ratings and E[rating]: blue = cleaner, red
 CMAP_DUMPING = "RdBu_r"      # 311 dumping report rates: blue = fewer than the citywide rate, red = more; log scale
 CMAP_PROPENSITY = "PiYG_r"   # reporting propensity w_R: pink = chatty neighbourhoods, green = quiet ones
 CMAP_FACTOR = "PiYG"         # correction factor log(corrected / raw): pink = discounted (chatty), green = scaled up (quiet)
+CMAP_DELTA = "BrBG"          # the correction in absolute terms (corrected − raw): brown = reports removed, teal = reports added
 
 
 def ensure_dirs():

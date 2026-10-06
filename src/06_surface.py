@@ -30,7 +30,8 @@ Colours (config.py): what is on the ground — litter (CMAP_LITTER) and dumping
 report rates (CMAP_DUMPING) — on the same diverging red–blue scale centred on
 the citywide mean / rate; how people report — reporting propensity and the
 correction factor — on the CMAP_PROPENSITY / CMAP_FACTOR pair (pink = chatty
-places, green = quiet places, in both).
+places, green = quiet places, in both); what the correction did in absolute
+terms (corrected − raw) on CMAP_DELTA (brown = removed, teal = added).
 
 Writes  output/surface/dumping_{window}.tif      bands rate_raw, rate_corr (per year per 1,000 stops),
                                                   log_rel_raw, log_rel_corr (log of rate / citywide rate),
@@ -63,7 +64,7 @@ from matplotlib import patheffects
 
 from config import (DATA, OUT, FIG, FIELDS, SURF, CRS, EPOCH, GRID_RES, TAU, ALPHA, BETA_GRID, DATE_IN, DATE_OUT,
                     LONG_WINDOWS, RATE_PER, SURVEY_MIN_NEFF, ZOOM, DISTRICT_FILE, DISTRICT_COL, INK, MUTED,
-                    CMAP_LITTER, CMAP_DUMPING, CMAP_PROPENSITY, CMAP_FACTOR, map_style, load_choices, ensure_dirs)
+                    CMAP_LITTER, CMAP_DUMPING, CMAP_PROPENSITY, CMAP_FACTOR, CMAP_DELTA, map_style, load_choices, ensure_dirs)
 from kernels import kernel_sum, accumulate_st, shrunk_log
 from ordinal import OrderedLogit
 from design import FE, design, spline_basis
@@ -368,12 +369,12 @@ def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
     districts_on(ax, dist)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig5_dumping_corrected.png"), dpi=170); plt.close(fig)
 
-    # fig5b: what the correction did, in absolute terms — corrected − as filed (pink = reports discounted, green = scaled up)
+    # fig5b: what the correction did, in absolute terms — corrected − as filed (brown = reports removed, teal = added)
     d_lim = sym_lim(L["rate_delta"], q=0.95)
     fig, ax = plt.subplots(figsize=(10.5, 11.5))
     show(ax, R.grid(L["rate_delta"]), R, geom, f"Effect of the correction, {main}: corrected − as filed",
          f"reports per year per {RATE_PER:,.0f} SafeGraph monthly stops\n"
-         "pink = reports discounted (chatty neighbourhoods), green = scaled up (quiet ones)", -d_lim, d_lim, CMAP_FACTOR)
+         "brown = reports removed (chatty neighbourhoods), teal = reports added (quiet ones)", -d_lim, d_lim, CMAP_DELTA)
     districts_on(ax, dist)
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "fig5b_correction_delta.png"), dpi=170); plt.close(fig)
 

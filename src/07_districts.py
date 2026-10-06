@@ -59,7 +59,7 @@ from matplotlib.ticker import FuncFormatter, MultipleLocator
 
 from config import (DATA, OUT, FIG, FIELDS, CALIB, SURF, DIST, CRS, ALPHA, BETA_GRID, LONG_WINDOWS, RATE_PER,
                     DISTRICT_FILE, DISTRICT_COL, DISTRICTS, ZOOM_PAD, INK, MUTED, CMAP_LITTER, CMAP_DUMPING,
-                    CMAP_PROPENSITY, CMAP_FACTOR, load_choices, ensure_dirs)
+                    CMAP_PROPENSITY, CMAP_FACTOR, CMAP_DELTA, load_choices, ensure_dirs)
 from ordinal import OrderedLogit
 from design import FE, design
 
@@ -239,8 +239,8 @@ def _figure(d, label, poly, row, D, S, extent, W, sc, geom, e, vz, beta_hat, HW0
               (axes[1, 1], np.log(D["correction_factor"]), R, f"(E) correction factor, {MAIN}: log(corrected / as filed)",
                "pink = reports discounted (chatty); green = scaled up (quiet)", -sc["cf_lim"], sc["cf_lim"], CMAP_FACTOR, None, None),
               (axes[1, 2], D["rate_delta"], R, f"(F) effect of the correction, {MAIN}: corrected − as filed",
-               f"reports per year per {RATE_PER:,.0f} stops   (pink = reports discounted, green = scaled up)",
-               -sc["d_lim"], sc["d_lim"], CMAP_FACTOR, None, None)]
+               f"reports per year per {RATE_PER:,.0f} stops   (brown = reports removed, teal = reports added)",
+               -sc["d_lim"], sc["d_lim"], CMAP_DELTA, None, None)]
     for ax, Z, Rz, title, lab, lo, hi, cmap, tk, tl in panels:
         surf.show(ax, Z, Rz, geom, title, lab, lo, hi, cmap, zoom=zoom, ticks=tk, ticklabels=tl)
         outline.plot(ax=ax, color=INK, linewidth=1.4)

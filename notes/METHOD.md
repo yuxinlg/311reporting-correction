@@ -76,7 +76,7 @@ field, map the field to the 1–4 Litter Index, and let the field survey
    outlined and named and the colorbar in multiples of the citywide rate and in absolute rates, is the
    conclusion map (`fig5_dumping_corrected.png`): the estimate of where dumping happens. Its companion
    `fig5b_correction_delta.png` is B − A in absolute units (band `rate_delta`): where the correction removed
-   reports (chatty places, pink) and where it added them (quiet places, green). Appendix: the 120-day
+   reports (chatty places, brown) and where it added them (quiet places, teal). Appendix: the 120-day
    snapshot pushed through the calibrated sigmoid (E[rating], how a surveyor would score a cell) for
    2023-06-30 and 2025-12-31.
 
