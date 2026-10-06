@@ -2,7 +2,8 @@
 kernels.py
 ==========
 Compact-support quartic (biweight) kernel sums on the plane, shared by the
-triage, the reporting surface (02), the 311 field (03) and the raster (06).
+reporting surface (02), the 311 field (03), the maps (06) and the district
+zooms (07).
 
     K_h(d) = (1 - (d/h)^2)^2   for d < h, else 0
     sd(K_h) = h / sqrt(7)  ~ 0.378 h  (a quartic radius of 500 m smooths like a
@@ -95,24 +96,6 @@ def accumulate_st(query_xy, query_t, src_xy, src_t, h, taus, weights=None,
             for k, w in weights.items():
                 out[(tau, k)] += np.bincount(i, weights=v * w[j], minlength=n)
     return out
-
-
-def build_W(query_xy, query_t, src_xy, src_t, h, tau, src_tree=None, min_weight=1e-9):
-    """
-    Sparse (n_query x n_src) matrix with entries K_h(d) * exp(-dt/tau) for
-    causal pairs (dt >= 0). lambda_corr(beta) = W @ exp(-beta * w_R) is then a
-    single sparse matvec, which is what makes the profile likelihood cheap.
-    """
-    from scipy import sparse
-    tree = src_tree if src_tree is not None else cKDTree(src_xy)
-    rows, cols, vals = [], [], []
-    for i, j, d in pairs_within(query_xy, tree, h):
-        dt = query_t[i] - src_t[j]
-        v = quartic(d, h) * np.exp(-np.maximum(dt, 0.0) / tau)
-        m = (dt >= 0) & (v > min_weight)
-        rows.append(i[m].astype(np.int32)); cols.append(j[m].astype(np.int32)); vals.append(v[m])
-    rows, cols, vals = np.concatenate(rows), np.concatenate(cols), np.concatenate(vals)
-    return sparse.csr_matrix((vals, (rows, cols)), shape=(len(query_xy), len(src_xy)))
 
 
 def shrunk_log(num, den, alpha=1.0, lam_bar=None):

@@ -9,6 +9,9 @@
 data/*
 !data/README.md
 
+# --- personal working notes kept in the folder, not part of the repository --
+311_dumping_plan_lessons.md
+
 # --- model / pipeline outputs ----------------------------------------------
 output/
 outputs/

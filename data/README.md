@@ -15,7 +15,7 @@ Source root: `/Users/yuxin/Dropbox/DDDI/Illegal-Dumping` (referred to as `$SRC`)
 | `cov_cbg.geojson` | `$SRC/replication/output/cov_cbg.geojson` | Per-CBG covariates built by the predecessor repo's `02_covariates.py`. Supplies the dumping exposure `alloc_avg_s_cnt` (SafeGraph avg monthly stops) and ~30 covariates. |
 | `litter_surveys_raw_20250730.csv` | `$SRC/data/CSVFiles/litter_surveys_raw_20250730.csv` | Philadelphia Litter Index field surveys, 74,148 rows. Extracted 2025-07-30. |
 | `Planning_Districts.geojson` | `$SRC/replication/data/Planning_Districts.geojson` | City Planning Commission planning districts, 18 polygons, EPSG:4326, field `dist_name` (Center City = "Central", South Philadelphia = "South", stadiums and Navy Yard = "Lower South"). Used by `07_districts.py` for the district zooms. |
-| `ref_05a_output/` | `$SRC/replication/output/corrected_hawkes_streetlight/` | **Reference only.** The predecessor `05a` citywide decomposition, used as the regression-test target (β = 0.579). Not an input to this pipeline. |
+| `ref_05a_output/` | `$SRC/replication/output/corrected_hawkes_streetlight/` | **Archived pipeline only.** The predecessor `05a` citywide decomposition (β = 0.579), read by the archived `00_triage.py` / `02_reporting.py` at tag `v0-full-pipeline`. The live pipeline (`src/`) never reads it; the link can be omitted if the archive is not re-run. |
 
 ## Recreating the links
 

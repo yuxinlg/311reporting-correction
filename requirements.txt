@@ -1,0 +1,11 @@
+# Tested with Python 3.12.7 (miniconda) on macOS, 2026-10-06.
+numpy>=2.2
+pandas>=2.3
+geopandas>=1.0
+shapely>=2.1
+pyproj>=3.7
+scipy>=1.13
+patsy>=1.0
+rasterio>=1.4
+matplotlib>=3.10
+pyarrow
