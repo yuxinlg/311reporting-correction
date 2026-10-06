@@ -42,7 +42,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from config import (OUT, FIG, CRS, OUTAGE_WINDOW, HW_SWEEP, HW_RELIABILITY, KAPPA, WR_RASTER_RES,
-                    C1, MUTED, style, map_style, update_choices, ensure_dirs)
+                    C1, MUTED, CMAP_PROPENSITY, style, map_style, update_choices, ensure_dirs)
 from kernels import kernel_sum, SD_FACTOR
 
 warnings.filterwarnings("ignore")
@@ -137,11 +137,11 @@ def main():
     fig, axes = plt.subplots(1, 2, figsize=(13, 6.5), gridspec_kw={"width_ratios": [1.15, 1]})
     ax = axes[0]
     lim = float(np.nanquantile(np.abs(Z), 0.98))
-    im = ax.imshow(Z, origin="lower", extent=[gx[0], gx[-1], gy[0], gy[-1]], cmap="RdBu_r", vmin=-lim, vmax=lim,
+    im = ax.imshow(Z, origin="lower", extent=[gx[0], gx[-1], gy[0], gy[-1]], cmap=CMAP_PROPENSITY, vmin=-lim, vmax=lim,
                    interpolation="nearest")
     map_style(ax, geom, f"reporting propensity w_R from street poles, h_w = {HW0} m")
     cb = plt.colorbar(im, ax=ax, orientation="horizontal", shrink=0.75, pad=0.08, aspect=35)
-    cb.set_label("log outage reports per pole, centred on the pole-weighted mean", fontsize=8, color=MUTED)
+    cb.set_label("log outage reports per pole, centred   (orange = chatty, purple = quiet)", fontsize=8, color=MUTED)
     cb.ax.tick_params(labelsize=8, colors=MUTED)
     ax = axes[1]
     ax.scatter(cc["log_rate"] - cc["log_rate"].mean(), cc["wR_centroid"], s=6, color=C1, alpha=0.5)

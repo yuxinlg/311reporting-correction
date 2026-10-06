@@ -99,6 +99,11 @@ SEED = 0
 # --- plotting -----------------------------------------------------------------
 C1, C2, C3 = "#2a78d6", "#eb6834", "#1baf7a"
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e6e5e1"
+# one colour family per kind of data, so a reader can tell at a glance what a map shows
+CMAP_LITTER = "RdBu_r"       # survey ratings and E[rating]: blue = cleaner, red = dirtier, centred on the citywide mean
+CMAP_REPORTS = "magma"       # 311 report rates: dark = quiet, bright = chatty; log scale in multiples of the citywide rate
+CMAP_PROPENSITY = "PuOr_r"   # reporting propensity w_R: orange = chatty neighbourhoods, purple = quiet ones
+CMAP_FACTOR = "PuOr"         # correction factor log(corrected / raw): orange = discounted (chatty), purple = scaled up (quiet)
 
 
 def ensure_dirs():
