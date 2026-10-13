@@ -3,7 +3,7 @@ ordinal.py
 ==========
 Proportional-odds (cumulative) logit with analytic gradient, L-BFGS, optional
 frequency weights, warm starts, and a cluster-robust sandwich covariance.
-Written because the calibration refits the same model hundreds of times
+Written because the survey test refits the same model hundreds of times
 (profile likelihood over beta, block bootstrap, blocked CV) and statsmodels'
 OrderedModel is an order of magnitude too slow for that.
 

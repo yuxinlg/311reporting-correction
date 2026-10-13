@@ -1,7 +1,7 @@
 """
 07_districts.py
 ===============
-The same maps and the same calibration check, one planning district at a time.
+The same maps, the same β and the same survey check, one planning district at a time.
 Center City is the City Planning Commission's "Central" district and South
 Philadelphia its "South" district (the stadiums and the Navy Yard are a separate
 "Lower South"). Block groups are assigned to a district by their representative
@@ -17,25 +17,22 @@ For every district (table for all 18, figures for DISTRICTS):
                p10 / p50 / p90 comes from 06's raster
   agreement    Spearman of 06's maps (A as filed, B corrected) with the survey map C over
                the district's block groups and cells: does the correction help here?
-  calibration  two views of β inside the district, on the cached kernel sums of 03:
-               (i)  the citywide model's gain on the district's visits, with the citywide
-                    coefficients: ℓ_d(β̂) − ℓ_d(0) at the grid point nearest β̂; over the 18
-                    districts these sum to the citywide Δℓ on the grid
-               (ii) the district's own β̂: the profile likelihood refitted on the district's
-                    visits alone, with its own month and surveyor effects; the loss
-                    ℓ_d(β̂_d) − ℓ_d(β̂) says whether the district is consistent with the
-                    citywide value (a loss under ~2 is noise)
+  beta         the district's own β: 04's Poisson regression on the district's block groups
+               alone (robust SE); says whether the within-district contrast of chatty and
+               quiet block groups carries the citywide slope
+  survey       the citywide rating model's gain on the district's visits, with the citywide
+               coefficients from 05: ℓ_d(β̂) − ℓ_d(0); over the 18 districts these sum to the
+               citywide Δℓ(β̂)
   figure       (A) as filed, (B) corrected, (C) survey on its own — 06's rasters on the
                citywide colour scales, zoomed to the district with its outline, reports and
                visits overlaid; (D) w_R; (E) correction factor (ratio); (F) the correction in
-               absolute terms, corrected − as filed. The district's own profile curve is kept
-               in profile_curves.csv and its numbers in the table, not drawn.
+               absolute terms, corrected − as filed.
 
 Reads   data/Planning_Districts.geojson; output/{cbg_geom.geojson, support_grid, points_dumping, wR_events,
-        visits}.parquet, wR_raster.npz; fields/h{H0}.npz; calib/profile_h{H0}_month+surv_a{α}_hw{HW0}.npz;
+        visits}.parquet, wR_raster.npz; beta/cbg.csv; survey/fit_at_beta_hat.npz;
         surface/dumping_{window}.tif, litter_survey.tif, surface_cbg.csv
-Writes  output/districts/districts.csv (one row per district + citywide), profile_curves.csv,
-        cbg_district.csv (GEOID -> district), summary.json
+Writes  output/districts/districts.csv (one row per district + citywide), cbg_district.csv (GEOID -> district),
+        summary.json
         output/figures/fig4_{district}.png
 """
 
@@ -57,18 +54,17 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter, MultipleLocator
 
-from config import (DATA, OUT, FIG, FIELDS, CALIB, SURF, DIST, CRS, ALPHA, BETA_GRID, LONG_WINDOWS, RATE_PER,
+from config import (DATA, OUT, FIG, BETA, SURVEY, SURF, DIST, CRS, LONG_WINDOWS, RATE_PER,
                     DISTRICT_FILE, DISTRICT_COL, DISTRICTS, ZOOM_PAD, INK, MUTED, CMAP_LITTER, CMAP_DUMPING,
                     CMAP_PROPENSITY, CMAP_FACTOR, CMAP_DELTA, load_choices, ensure_dirs)
 from ordinal import OrderedLogit
 from design import FE, design
 
-calib = importlib.import_module("04_calibrate")        # field_log, profile, argmax_parabola
+beta_mod = importlib.import_module("04_beta")          # poisson_fit
 surf = importlib.import_module("06_surface")           # show, sym_lim, rate_scale
 
 warnings.filterwarnings("ignore")
 OL = OrderedLogit(4)
-I0 = int(np.argmin(np.abs(BETA_GRID)))
 MAIN = "2021-2025"
 
 
@@ -94,10 +90,9 @@ def rho(a, b):
 
 def main():
     t_start = time.time()
-    print("=" * 68); print("07_districts.py — the maps and the calibration inside one planning district"); print("=" * 68)
+    print("=" * 68); print("07_districts.py — the maps, β and the survey check inside one planning district"); print("=" * 68)
     ensure_dirs()
     ch = load_choices(); H0, HW0, beta_hat, ci = ch["H0"], ch["HW0"], float(ch["beta_hat"]), ch["ci_95"]
-    i_hat = int(np.argmin(np.abs(BETA_GRID - beta_hat)))
     t0, t1 = LONG_WINDOWS[MAIN]; years = (t1 - t0).days / 365.25
 
     # ---- districts and the block-group assignment ---------------------------------------------------
@@ -111,7 +106,7 @@ def main():
     to_d = cbg_d.set_index("GEOID")["district"]
     names = list(dist["district"])
     print(f"  {len(dist)} planning districts; {cbg_d['district'].notna().sum()} of {len(geom)} block groups assigned by "
-          f"representative point; β̂ = {beta_hat:.3f} (grid point {BETA_GRID[i_hat]:g}), h = {H0}, h_w = {HW0}")
+          f"representative point; β̂ = {beta_hat:.3f} [{ci[0]:.2f}, {ci[1]:.2f}], h = {H0}, h_w = {HW0}")
 
     # ---- inputs, each with a district column ---------------------------------------------------------
     sup = pd.read_parquet(os.path.join(OUT, "support_grid.parquet")); sup["district"] = sup["GEOID"].map(to_d)
@@ -134,30 +129,26 @@ def main():
     city_raw = len(ev) / E_city / years * RATE_PER
     city_corr = ev["m"].sum() / E_city / years * RATE_PER
 
-    # ---- calibration pieces: the cached kernel sums and the citywide fit ----------------------------
-    F = dict(np.load(os.path.join(FIELDS, f"h{H0}.npz"))); F["lam_bar_raw"] = float(F["lam_bar_raw"])
-    z = np.load(os.path.join(CALIB, f"profile_h{H0}_month+surv_a{ALPHA:g}_hw{HW0}.npz"))
-    assert np.allclose(z["grid"], BETA_GRID)
+    # ---- the citywide rating model (05) scored visit by visit, and 04's block-group table ---------------
+    z = np.load(os.path.join(SURVEY, "fit_at_beta_hat.npz"))
     fe_city = FE(v).build(v)
-    lli = {}
-    for i in (I0, i_hat):
-        x = calib.field_log(F["num"][:, i], F["den"], F["lam_bar_raw"] * F["mean_m"][i], ALPHA)
-        X, _, _, _ = design(x, fe_city)
-        lli[i] = OL.loglik_i(z["thetas"][i], X, y)
-    gain_i = lli[i_hat] - lli[I0]
-    dll_city_grid = float(z["ll"][i_hat] - z["ll"][I0])
-    print(f"  citywide model: ℓ({BETA_GRID[i_hat]:g}) − ℓ(0) = {gain_i.sum():+.1f} per-visit sum vs {dll_city_grid:+.1f} "
-          f"from the cached profile (closure check)")
+    X_hat, _, _, _ = design(z["x_hat"], fe_city)
+    X_0, _, _, _ = design(z["x0"], fe_city)
+    gain_i = OL.loglik_i(z["theta_hat"], X_hat, y) - OL.loglik_i(z["theta_0"], X_0, y)
+    dll_city = float(z["ll_hat"] - z["ll_0"])
+    print(f"  citywide rating model: ℓ(β̂) − ℓ(0) = {gain_i.sum():+.1f} per-visit sum vs {dll_city:+.1f} from 05 (closure check)")
+    bg = pd.read_csv(os.path.join(BETA, "cbg.csv"), dtype={"GEOID": str}); bg["district"] = bg["GEOID"].map(to_d)
 
     # ---- one row per district ----------------------------------------------------------------------
-    print(f"\n[districts] β profile refitted on each district's visits alone ({len(BETA_GRID)} fits each)")
-    rows, curves = [], {}
+    print(f"\n[districts] β from each district's block groups alone; the citywide model's survey gain on its visits")
+    rows = []
     for d in names + ["citywide"]:
         t = time.time()
         md = np.ones(len(v), bool) if d == "citywide" else (v["district"] == d).to_numpy()
         me = np.ones(len(ev), bool) if d == "citywide" else (ev["district"] == d).to_numpy()
         mc = np.ones(len(cell), bool) if d == "citywide" else (cell["district"] == d).to_numpy()
         mb = np.ones(len(cb), bool) if d == "citywide" else (cb["district"] == d).to_numpy()
+        mg = np.ones(len(bg), bool) if d == "citywide" else (bg["district"] == d).to_numpy()
         E_d = sup.loc[mc, "E_cell"].sum()
         row = {"district": d, "n_cbg": int(mb.sum()), "n_cells": int(mc.sum()), "n_reports": int(me.sum()),
                "share_reports": float(me.sum() / len(ev)), "n_visits": int(md.sum()),
@@ -171,31 +162,25 @@ def main():
         for which in ("raw", "corr"):
             row[f"rho_cbg_{which}"] = rho(cb.loc[mb, f"log_rel_{which}_{MAIN}"].to_numpy(), cb.loc[mb, "survey_rating_adj"].to_numpy())
             row[f"rho_cell_{which}"] = rho(cell.loc[mc, f"log_rel_{which}"].to_numpy(), cell.loc[mc, "rating_adj"].to_numpy())
-        # (i) the citywide model's gain on this district's visits
-        row["dll_citywide_model"] = float(gain_i[md].sum()); row["share_of_citywide_dll"] = row["dll_citywide_model"] / dll_city_grid
-        # (ii) the district's own profile
-        vd = v[md].reset_index(drop=True)
-        Fd = {"num": F["num"][md], "den": F["den"][md], "lam_bar_raw": F["lam_bar_raw"], "mean_m": F["mean_m"]}
-        lls, _ = calib.profile(Fd, y[md], FE(vd).build(vd), range(len(BETA_GRID)))
-        ll = np.array([lls[i] for i in range(len(BETA_GRID))]); curves[d] = ll - ll[I0]
-        bh, llm, edge = calib.argmax_parabola(BETA_GRID, ll)
-        row.update({"ll0_own": float(ll[I0]), "beta_own": bh, "at_edge": edge, "dll_own": float(llm - ll[I0]),
-                    "dll_own_at_citywide_beta": float(ll[i_hat] - ll[I0]), "loss_at_citywide_beta": float(llm - ll[i_hat]),
-                    "n_surveyors": int(vd["surv"].nunique()), "n_months": int(vd["month"].nunique())})
+        # the district's own β: 04's regression on its block groups alone
+        g = bg[mg]
+        b, V, _ = beta_mod.poisson_fit(g["wbar"].to_numpy()[:, None], g["T"].to_numpy(float), np.log(g["exposure"].to_numpy(float)))
+        row.update({"beta_own": float(b[1]), "se_own": float(np.sqrt(V[1, 1])), "sd_wbar": float(g["wbar"].std())})
+        # the citywide rating model's gain on this district's visits
+        row["dll_survey"] = float(gain_i[md].sum()); row["share_of_citywide_dll"] = row["dll_survey"] / dll_city
         rows.append(row)
         print(f"  {d:>21}: {row['n_cbg']:>4} bg, {row['n_reports']:>6,} reports, {row['n_visits']:>6,} visits | w̄_R {row['wR_mean_reports']:+.2f} | "
               f"rate ×{row['rel_raw']:.2f} → ×{row['rel_corr']:.2f} (factor {row['factor']:.2f}) | ρ_bg {row['rho_cbg_raw']:.2f} → "
-              f"{row['rho_cbg_corr']:.2f} | Δℓ city model {row['dll_citywide_model']:+6.1f} | own β̂ {bh:.2f}{'*' if edge else ' '} "
-              f"Δℓ {row['dll_own']:+6.1f}, loss at β̂ {row['loss_at_citywide_beta']:.1f}   ({time.time() - t:.0f} s)")
+              f"{row['rho_cbg_corr']:.2f} | own β {row['beta_own']:+.2f} (se {row['se_own']:.2f}, sd w̄ {row['sd_wbar']:.2f}) | "
+              f"survey Δℓ {row['dll_survey']:+6.1f}   ({time.time() - t:.0f} s)")
     tab = pd.DataFrame(rows)
     tab.to_csv(os.path.join(DIST, "districts.csv"), index=False)
-    pd.DataFrame({"beta": BETA_GRID, **curves}).to_csv(os.path.join(DIST, "profile_curves.csv"), index=False)
     inside = tab[tab["district"] != "citywide"]
-    print(f"  closure: Σ_districts Δℓ(citywide model) = {inside['dll_citywide_model'].sum():+.1f} + unassigned "
-          f"{gain_i[v['district'].isna().to_numpy()].sum():+.1f} = {dll_city_grid:+.1f}")
+    print(f"  closure: Σ_districts Δℓ(survey) = {inside['dll_survey'].sum():+.1f} + unassigned "
+          f"{gain_i[v['district'].isna().to_numpy()].sum():+.1f} = {dll_city:+.1f}")
 
-    summary = {"beta_hat": beta_hat, "ci_95": ci, "beta_grid_point": float(BETA_GRID[i_hat]), "h": H0, "window": MAIN,
-               "citywide_rate_raw": city_raw, "citywide_rate_corr": city_corr, "dll_citywide_grid": dll_city_grid,
+    summary = {"beta_hat": beta_hat, "ci_95": ci, "h": H0, "window": MAIN,
+               "citywide_rate_raw": city_raw, "citywide_rate_corr": city_corr, "dll_citywide": dll_city,
                "assignment": "block group representative point within the planning district",
                "districts": {r["district"]: {k: (float(x) if isinstance(x, (np.floating, float)) else x) for k, x in r.items() if k != "district"}
                              for r in rows}}
@@ -215,7 +200,7 @@ def main():
         poly = dist.loc[dist["district"] == d, "geometry"].iloc[0]
         _figure(d, label, poly, row, D, S, extent, W, scales, geom, ev[ev["district"] == d], v[v["district"] == d],
                 beta_hat, HW0, os.path.join(FIG, f"fig4_{d.lower().replace(' ', '_')}.png"))
-    print(f"\nDone in {time.time() - t_start:.0f} s. Saved → output/districts/districts.csv, profile_curves.csv, cbg_district.csv, "
+    print(f"\nDone in {time.time() - t_start:.0f} s. Saved → output/districts/districts.csv, cbg_district.csv, "
           f"summary.json; figures " + ", ".join(f"fig4_{d.lower()}.png" for d in DISTRICTS))
 
 
@@ -256,8 +241,8 @@ def _figure(d, label, poly, row, D, S, extent, W, sc, geom, e, vz, beta_hat, HW0
                  f"{row['n_visits']:,} survey visits; report rate ×{row['rel_raw']:.2f} of citywide as filed, ×{row['rel_corr']:.2f} corrected "
                  f"(mean w_R at reports {row['wR_mean_reports']:+.2f})\n"
                  f"block groups, Spearman with the survey: as filed {row['rho_cbg_raw']:.2f} → corrected {row['rho_cbg_corr']:.2f};  "
-                 f"citywide model's gain on these visits Δℓ = {row['dll_citywide_model']:+.0f};  "
-                 f"β̂ from these visits alone {row['beta_own']:.2f}{' (grid edge)' if row['at_edge'] else ''} (Δℓ {row['dll_own']:+.0f})",
+                 f"β from these block groups alone {row['beta_own']:+.2f} (se {row['se_own']:.2f});  "
+                 f"the citywide rating model's gain on these visits Δℓ = {row['dll_survey']:+.0f}",
                  x=0.01, ha="left", fontsize=10, y=0.995)
     fig.tight_layout(rect=(0, 0, 1, 0.965)); fig.savefig(path, dpi=150); plt.close(fig)
 

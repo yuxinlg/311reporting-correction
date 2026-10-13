@@ -18,7 +18,7 @@ Writes (output/)
   cbg_geom.geojson         GEOID, geometry (EPSG:26918)
   support_grid.parquet     x, y, GEOID, E_cell           50 m cells on the built support
   visits.parquet           the survey model table (columns listed in build_visits)
-  cbg_blocks.parquet       GEOID, block                  40 contiguous spatial blocks
+  cbg_blocks.parquet       GEOID, block                  40 contiguous spatial blocks, every block group
 
 Coordinates are metres in EPSG:26918; t_days counts days from EPOCH.
 """
@@ -205,13 +205,17 @@ def build_visits(cbg: gpd.GeoDataFrame, exposure: pd.Series) -> pd.DataFrame:
     v["surv"] = pd.factorize(v["surveyor"])[0]
     v["month"] = pd.factorize(v["ts"].dt.year * 12 + v["ts"].dt.month, sort=True)[0]
 
-    # spatial blocks: block groups cut into N_BLOCKS contiguous rectangles of ~equal visit count
+    # spatial blocks: block groups cut into N_BLOCKS contiguous rectangles of ~equal visit count; a block
+    # group without visits joins the block of the nearest centroid that has them, so every block group has one
     cnt = v.groupby("GEOID").size()
-    cen = cbg.set_index("GEOID").geometry.centroid.reindex(cnt.index)
+    cen_all = cbg.set_index("GEOID").geometry.centroid
+    cen = cen_all.reindex(cnt.index)
     bl = pd.DataFrame({"GEOID": cnt.index, "n_visits": cnt.to_numpy(), "cx": cen.x.to_numpy(), "cy": cen.y.to_numpy()})
     bl["block"] = kd_blocks(bl[["cx", "cy"]].to_numpy(), bl["n_visits"].to_numpy(float), N_BLOCKS)
-    v = v.merge(bl[["GEOID", "block"]], on="GEOID", how="left")
-    bl[["GEOID", "block"]].to_parquet(os.path.join(OUT, "cbg_blocks.parquet"), index=False)
+    _, nearest = cKDTree(bl[["cx", "cy"]].to_numpy()).query(np.c_[cen_all.x.to_numpy(), cen_all.y.to_numpy()])
+    blocks_all = pd.DataFrame({"GEOID": cen_all.index, "block": bl["block"].to_numpy()[nearest]})
+    v = v.merge(blocks_all, on="GEOID", how="left")
+    blocks_all.to_parquet(os.path.join(OUT, "cbg_blocks.parquet"), index=False)
     v.to_parquet(os.path.join(OUT, "visits.parquet"), index=False)
 
     per_loc = v.groupby("loc").size()
@@ -222,7 +226,8 @@ def build_visits(cbg: gpd.GeoDataFrame, exposure: pd.Series) -> pd.DataFrame:
           f"{v['surv'].nunique()} surveyors, {v['month'].nunique()} year-months, {v['GEOID'].nunique():,} block groups")
     print("         rating " + "  ".join(f"{k}: {n:,}" for k, n in v["rating"].value_counts().sort_index().items())
           + f"   mean {v['rating'].mean():.3f}  sd {v['rating'].std():.3f};  bulk flag {v['bulk'].mean():.1%}")
-    print(f"         {N_BLOCKS} spatial blocks: {bsz.min():,}–{bsz.max():,} visits each")
+    print(f"         {N_BLOCKS} spatial blocks: {bsz.min():,}–{bsz.max():,} visits each; "
+          f"{len(blocks_all) - len(bl)} block groups without visits attached to the nearest block")
     return v
 
 

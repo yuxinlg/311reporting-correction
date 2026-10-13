@@ -19,19 +19,15 @@ Pass A — choose h and check τ, on the raw field:
   with month and location effects absorbed. If past and future tie, the time
   kernel carries no dynamics and τ is a pooling window.
 
-Pass B — every kernel sum the statistics need, for h in H_LIST:
-  num[β] for β in BETA_GRID; the pieces of w̄ (event-kernel-weighted mean of
-  w_R, for the −c/b check); the exposure denominator; the shrinkage target λ̄
-  computed on the support grid, not on the survey. At H0 only: num_alt[β] with
-  the HW_ALT surface, num_null[p, β] for N_PERM torus-shifted w_R maps at
-  NULL_BETAS, and the outage-placebo numerator.
+Pass B — every kernel sum the survey test (05) needs, for h in H_LIST:
+  num[β] for β in BETA_GRID (the survey's own profile of β); the exposure
+  denominator; the shrinkage target λ̄ computed on the support grid, not on the
+  survey. At H0 only: the outage-placebo numerator.
 
 Unit test: sparse accumulator vs a dense recomputation on 300 visits.
 
 Writes
-  output/fields/h{h}.npz   grid, den, num (n×|grid|), wbar, lam_bar_raw, mean_m
-                           [+ num_alt, mean_m_alt, num_null (n×N_PERM×|NULL_BETAS|),
-                              mean_m_null, num_outage at H0]
+  output/fields/h{h}.npz   grid, den, num (n×|grid|), lam_bar_raw, mean_m [+ num_outage at H0]
   output/field_sweep.csv, output/placebo.csv, output/choices.json (+ H0, H_LIST)
   output/figures/03_sweep.png
 """
@@ -49,8 +45,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from config import (OUT, FIG, FIELDS, EPOCH, H_SWEEP, H_RULE_TOL, TAU_SWEEP, TAU, PLACEBO_WIN, ALPHA,
-                    BETA_GRID, NULL_BETAS, N_PERM, DATE_IN, SEED, C1, C2, C3, MUTED, style,
-                    load_choices, update_choices, ensure_dirs)
+                    BETA_GRID, DATE_IN, C1, C2, C3, MUTED, style, load_choices, update_choices, ensure_dirs)
 from kernels import kernel_sum, accumulate_st, pairs_within, quartic, shrunk_log, SD_FACTOR
 
 warnings.filterwarnings("ignore")
@@ -120,19 +115,18 @@ def main():
     t_start = time.time()
     print("=" * 68); print("03_field.py — Stage 2: the 311 field at every visit"); print("=" * 68)
     ensure_dirs()
-    ch = load_choices(); HW0, HW_ALT = ch["HW0"], ch["HW_ALT"]
+    ch = load_choices(); HW0 = ch["HW0"]
     v = pd.read_parquet(os.path.join(OUT, "visits.parquet"))
     ev = pd.read_parquet(os.path.join(OUT, "points_dumping.parquet"))
     wr = pd.read_parquet(os.path.join(OUT, "wR_events.parquet"))
-    wv = pd.read_parquet(os.path.join(OUT, "wR_visits.parquet"))
     sup = pd.read_parquet(os.path.join(OUT, "support_grid.parquet"))
     v_xy, v_t, y = v[["x", "y"]].to_numpy(), v["t_days"].to_numpy(), v["rating"].to_numpy()
     ev_xy, ev_t = ev[["x", "y"]].to_numpy(), ev["t_days"].to_numpy()
     tree = cKDTree(ev_xy)
     sup_xy, sup_E = sup[["x", "y"]].to_numpy(), sup["E_cell"].to_numpy()
     sup_tree = cKDTree(sup_xy)
-    w0, w_alt = wr[f"wR_h{HW0}"].to_numpy(), wr[f"wR_h{HW_ALT}"].to_numpy()
-    print(f"  {len(v):,} visits, {len(ev):,} dumping reports, {len(sup):,} support cells; w_R at h_w = {HW0} (alt {HW_ALT})")
+    w0 = wr[f"wR_h{HW0}"].to_numpy()
+    print(f"  {len(v):,} visits, {len(ev):,} dumping reports, {len(sup):,} support cells; w_R at h_w = {HW0}")
 
     # ------------------------------------------------------------- Pass A
     print(f"\n[A] choosing h: Spearman(rating, log λ̂_0) over h × τ  (α = {ALPHA})")
@@ -174,46 +168,22 @@ def main():
     pd.DataFrame(prow).to_csv(os.path.join(OUT, "placebo.csv"), index=False)
 
     # ------------------------------------------------------------- Pass B
-    print(f"\n[B] kernel sums for the statistics, h in {H_LIST}, β grid of {len(BETA_GRID)} ({BETA_GRID[0]} … {BETA_GRID[-1]})")
-    rng = np.random.default_rng(SEED)
-    z = np.load(os.path.join(OUT, "wR_raster.npz"))
-    gx, gy, Z, res = z["x"], z["y"], np.where(np.isfinite(z["wR"]), z["wR"], 0.0), float(z["res"])
-    ix = np.clip(np.round((ev_xy[:, 0] - gx[0]) / res).astype(int), 0, len(gx) - 1)
-    iy = np.clip(np.round((ev_xy[:, 1] - gy[0]) / res).astype(int), 0, len(gy) - 1)
-    shifts = [(int(rng.integers(0, len(gx))), int(rng.integers(0, len(gy)))) for _ in range(N_PERM)]
-    ok0 = np.isfinite(w0).astype(float); w0f = np.where(np.isfinite(w0), w0, 0.0)
-    w_vis = wv[f"wR_h{HW0}"].to_numpy()
+    print(f"\n[B] kernel sums for the survey test, h in {H_LIST}, β grid of {len(BETA_GRID)} ({BETA_GRID[0]} … {BETA_GRID[-1]})")
+    w0f = np.where(np.isfinite(w0), w0, 0.0)
     lam_bar, unit_ok = {}, None
     for h in H_LIST:
         t0 = time.time()
         weights = {f"b{i}": np.exp(-b * w0f) for i, b in enumerate(BETA_GRID)}
-        weights["w"] = w0f * ok0; weights["ok"] = ok0
-        if h == H0:
-            for i, b in enumerate(BETA_GRID):
-                weights[f"a{i}"] = np.exp(-b * np.where(np.isfinite(w_alt), w_alt, 0.0))
-            for p, (sx, sy) in enumerate(shifts):
-                ws = Z[(iy + sy) % len(gy), (ix + sx) % len(gx)]
-                for k, b in enumerate(NULL_BETAS):
-                    weights[f"n{p}_{k}"] = np.exp(-b * ws)
         o = accumulate_st(v_xy, v_t, ev_xy, ev_t, h, [TAU], weights, src_tree=tree)
         num = np.column_stack([o[(TAU, f"b{i}")] for i in range(len(BETA_GRID))])
-        wbar = np.where(o[(TAU, "ok")] > 0, o[(TAU, "w")] / np.maximum(o[(TAU, "ok")], 1e-12), w_vis)
-        wbar = np.where(np.isfinite(wbar), wbar, 0.0)
         # shrinkage target on the support grid (survey-independent), raw field at DATE_IN
         t_in = float((DATE_IN - EPOCH).days)
         os_ = accumulate_st(sup_xy, np.full(len(sup_xy), t_in), ev_xy, ev_t, h, [TAU], None, src_tree=tree)
         den_sup = kernel_sum(sup_xy, sup_xy, h, weights=sup_E, source_tree=sup_tree)
         lam_bar[h] = float(os_[(TAU, "one")].sum() / den_sup.sum())
-        out = {"grid": BETA_GRID, "den": den[h], "num": num, "wbar": wbar, "lam_bar_raw": lam_bar[h],
+        out = {"grid": BETA_GRID, "den": den[h], "num": num, "lam_bar_raw": lam_bar[h],
                "mean_m": np.array([np.exp(-b * w0f).mean() for b in BETA_GRID])}
         if h == H0:
-            out["num_alt"] = np.column_stack([o[(TAU, f"a{i}")] for i in range(len(BETA_GRID))])
-            out["mean_m_alt"] = np.array([np.exp(-b * np.where(np.isfinite(w_alt), w_alt, 0.0)).mean() for b in BETA_GRID])
-            out["num_null"] = np.stack([np.column_stack([o[(TAU, f"n{p}_{k}")] for k in range(len(NULL_BETAS))])
-                                        for p in range(N_PERM)], axis=1)                      # n × N_PERM × |NULL_BETAS|
-            out["mean_m_null"] = np.array([[np.exp(-b * Z[(iy + sy) % len(gy), (ix + sx) % len(gx)]).mean()
-                                            for b in NULL_BETAS] for (sx, sy) in shifts])
-            out["null_betas"] = np.array(NULL_BETAS)
             r = pd.read_parquet(os.path.join(OUT, "points_outage.parquet"))
             oo = accumulate_st(v_xy, v_t, r[["x", "y"]].to_numpy(), r["t_days"].to_numpy(), h, [TAU], None)
             out["num_outage"] = oo[(TAU, "one")]

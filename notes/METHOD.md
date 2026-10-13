@@ -1,18 +1,20 @@
-# Method — point-level 311 dumping correction, calibrated to the Litter Index
+# Method — point-level 311 dumping correction, with the Litter Index as the test
 
-One page. Every number here is produced by `src/01_data.py` … `src/07_districts.py`
+One page. Every number here is produced by `src/01_data.py` … `src/08_validate.py`
 from the raw inputs in `data/`; nothing is taken from the archived pipeline.
 
 ## The question
 
 311 illegal-dumping reports are a cheap, citywide, continuous record of dumping,
 but places differ in how readily residents call 311. We use street-light-outage
-reports per street pole as a yardstick for that reporting propensity, reweight
-each dumping report by it, smooth the reweighted reports into a continuous
-field, map the field to the 1–4 Litter Index, and let the field survey
-(ground truth) tell us how strong the reweighting should be.
+reports per street pole as a yardstick for that reporting propensity, estimate
+from the block groups alone how strongly dumping reports follow it (β), reweight
+each dumping report by e^{−β w_R}, and smooth the reweighted reports into a
+continuous field. The Litter Index field survey does not enter the estimate of β;
+it is the test: does the correction at β̂ predict the ratings better than the raw
+reports, and which β would the survey itself have chosen?
 
-## Seven steps
+## Eight steps
 
 1. **Reporting propensity from poles** (`02_reporting.py`)
    `w_R(s) = log[ Σ_outages K_hw(|s−s_j|) / Σ_poles K_hw(|s−s_p|) ] − mean over poles`
@@ -33,36 +35,50 @@ field, map the field to the 1–4 Litter Index, and let the field survey
    (α = 1 prior report).
    *h rule:* raw-field Spearman with the rating, smallest h within 0.01 of the
    maximum → **h = 800 m** (0.375 vs 0.380 at 1200; neighbours 500 and 1200 are
-   the sensitivity values).
+   the sensitivity values). h is a smoothing bandwidth for the maps and the
+   rating model; it does not enter β.
    *τ:* the sweep is flat (0.356 / 0.375 / 0.376 / 0.362 at 60 / 120 / 240 / 480 d)
    and a placebo ties: kernel-weighted reports in the 90 days *after* a visit
    predict its rating as well as reports in the 90 days *before* (past − future
    t = −0.5 without, +0.9 with month and location effects). The time kernel is a
    pooling window, not dynamics; **τ = 120 d** is fixed.
 
-3. **The rating model** (`design.py`, `ordinal.py`)
+3. **β from the block groups, no survey** (`04_beta.py`)
+   `T_i ~ Poisson( E_i · exp(a + β · w̄_R,i) )` over the 1,335 block groups: T_i
+   the dumping reports 2021–2025, E_i the SafeGraph exposure (offset), w̄_R,i the
+   mean kernel w_R over the block group's support cells. β is the elasticity of
+   the report rate to reporting propensity, fitted by IRLS; CI from a spatial
+   block bootstrap (200 resamples of the 40 blocks). *Identifying assumption:*
+   true dumping per unit of exposure is unrelated to reporting propensity across
+   block groups (the residual is independent of w_R) — the same assumption as
+   the two-equation decomposition of the archived pipeline, which found 0.58 on
+   its own w_R scale. Five other readings of the same slope are reported next
+   to it: the survey years only; w_R at h_w = 600; least squares of the log
+   rate (every block group weighted equally); the exposure elasticity left free
+   (log E as a covariate); and 40 block fixed effects (neighbouring block groups
+   only). Torus-shift null: 50 shifted copies of the w_R raster, each regressed
+   the same way; the real map's deviance gain against theirs.
+
+4. **The rating model** (`design.py`, `ordinal.py`)
    `P(rating ≥ k) = σ( g(log λ̂_β) + month-of-sample + surveyor − κ_k )`
    Proportional-odds logit: three sigmoids sharing one index. g is a 5-df
    natural spline; 17 month-of-sample and 46 surveyor effects (surveyors are
    deviation-coded with a small ridge so an unseen surveyor predicts at the mean).
+   Used only to test the correction against the survey and, in the appendix, to
+   translate the field into E[rating].
 
-4. **β from ground truth** (`04_calibrate.py`)
-   Turn β from −0.2 to 2.0 in steps of 0.1, recompute the field, refit the
-   rating model; ℓ(β) is the maximised log-likelihood. **β̂ = argmax ℓ(β)**
-   (parabola through the best three points, then one exact refit). ℓ(0) is the
-   raw-field baseline. CI: spatial block bootstrap, 200 resamples of the 40
-   blocks, percentile interval.
-
-5. **Checks** (`04_calibrate.py`, `05_validate.py`)
-   - −c/b from one linear fit `b·log λ̂_0 + c·w̄` (the first-order version) must
-     land near β̂.
-   - Torus-shift null: 50 shifted copies of the w_R map, each allowed its best
-     β; none should improve the fit like the real map.
+5. **The survey as the test** (`05_survey.py`)
+   - In sample: turn β from −0.2 to 2.0 in steps of 0.1, recompute the field,
+     refit the rating model; ℓ(β) is the maximised log-likelihood. One exact
+     refit at β̂ gives **Δℓ(β̂) = ℓ(β̂) − ℓ(0)**, the correction's gain on the
+     survey. **β_survey = argmax ℓ(β)** with its own block-bootstrap CI: the
+     test is Δℓ(β̂) > 0 and β̂ inside the survey's interval; the loss
+     ℓ(β_survey) − ℓ(β̂) is how much the survey would gain from its own value.
    - Outage placebo: the same field built from outage reports instead of dumping
      reports should have a slope near zero.
-   - Buffered, spatially blocked 10-fold CV (test = 4 whole blocks; training
-     drops everything within 1.2 km of a test visit): raw field vs corrected
-     field with β chosen on the training fold.
+   - Out of sample: buffered, spatially blocked 10-fold CV (test = 4 whole
+     blocks; training drops everything within 1.2 km of a test visit): raw
+     field vs corrected field at β̂, nothing chosen in-fold.
 
 6. **The maps** (`06_surface.py`), on 50 m cells of the built support, kept as three separate objects:
    - **A. 311 dumping as filed:** long-term average report rate, all reports in a window kernel-smoothed
@@ -77,88 +93,111 @@ field, map the field to the 1–4 Litter Index, and let the field survey
    conclusion map (`fig5_dumping_corrected.png`): the estimate of where dumping happens. Its companion
    `fig5b_correction_delta.png` is B − A in absolute units (band `rate_delta`): where the correction removed
    reports (chatty places, brown) and where it added them (quiet places, teal). Appendix: the 120-day
-   snapshot pushed through the calibrated sigmoid (E[rating], how a surveyor would score a cell) for
+   snapshot pushed through the fitted sigmoid (E[rating], how a surveyor would score a cell) for
    2023-06-30 and 2025-12-31.
 
-7. **District zooms** (`07_districts.py`): the same maps and the same calibration inside one City Planning
+7. **District zooms** (`07_districts.py`): the same maps, β and survey check inside one City Planning
    Commission district (Center City = "Central", South Philadelphia = "South"; block groups assigned by their
    representative point, reports, visits and cells follow their block group). Per district: report rate as
    filed and corrected from the points and the district's exposure, as multiples of the citywide rate; mean
-   w_R at its reports; block-group Spearman of A and B with C; the citywide model's log-likelihood gain on the
-   district's visits, ℓ_d(0.9) − ℓ_d(0) with the citywide coefficients (the 18 districts sum to the citywide
-   Δℓ on the grid); and the district's own β̂ from the profile likelihood refitted on its visits alone with its
-   own month and surveyor effects. The loss ℓ_d(β̂_d) − ℓ_d(β̂) says whether the district is consistent with
-   the citywide β; it is a naive profile quantity (no allowance for spatial correlation; citywide the same
-   quantity is 1.7 between β̂ and the grid point 0.9). The district figure shows A, B, C, w_R, the
-   correction factor and the correction delta (B − A) on the citywide colour scales; the profile numbers
-   sit in the title and the table.
+   w_R at its reports; block-group Spearman of A and B with C; β from the district's own block groups (the
+   04 regression on them alone, robust SE); and the citywide rating model's log-likelihood gain on the
+   district's visits, ℓ_d(β̂) − ℓ_d(0) with the citywide coefficients (the 18 districts sum to the citywide
+   Δℓ(β̂)). The district figure shows A, B, C, w_R, the correction factor and the correction delta (B − A)
+   on the citywide colour scales; the numbers sit in the title and the table.
 
-## Results (run of 2026-10-05; `output/choices.json`, `calib/`, `cv/`, `surface/`)
+8. **The plain comparison with the survey** (`08_validate.py`): no rating model, no kernel. Ground truth
+   per block group = the mean rating of its own visits with month and surveyor effects removed (≥ 10
+   visits; 1,290 block groups). 311 per block group = reports in the survey years per unit of exposure,
+   as filed and with every report counted e^{−β̂ w_R} (and at the survey's own β, table only), Gamma-shrunk
+   log rates. Four readings: the mean 311 rate in survey quintiles (cleanest → dirtiest); rank agreement
+   (Spearman, the "dirtiest tenth" hit rate, with 40-block bootstrap intervals for the corrected − as filed
+   difference); the block-group-by-block-group disagreement in percentile ranks, mapped as filed and
+   corrected; and the chatty / middle / quiet w_R tertiles with 311 translated into rating points through
+   its own straight line, so the survey's gap and 311's gap are on one scale. A second figure puts the
+   before / after side by side: the rate as filed, corrected, their difference; the fit to the survey of
+   each (311 read as a rating minus the survey's rating) and the change in the misfit.
 
-**Table 1 — calibration** (`calib/table1.csv`; month + surveyor FE, α = 1, h_w = 400 unless stated;
-72,084 visits; ℓ with FE only = −53,681)
+## Results (run of 2026-10-13; `output/choices.json`, `beta/`, `survey/`, `surface/`, `districts/`)
 
-| h | ℓ(0) raw | ℓ(β̂) | Δℓ | β̂ | −c/b |
-|---|---|---|---|---|---|
-| 500 | −49,492 | −48,888 | +605 | 0.88 | 0.81 |
-| **800** | **−49,057** | **−48,447** | **+610** | **0.86, 95% CI [0.63, 1.08]** | 0.94 [0.66, 1.24] |
-| 1200 | −48,835 | −48,229 | +606 | 0.83 | 1.04 |
-| 800, month-only FE | −61,271 | −60,850 | +421 | 0.93 | 1.02 |
-| 800, α = 0.25 | −49,007 | −48,385 | +622 | 0.87 | 1.08 |
-| 800, h_w = 600 | −49,057 | −48,310 | +748 | 1.03 | 0.94 |
+**Table 1 — β from the block groups** (`beta/table1.csv`; 1,335 block groups, 116,751 dumping reports
+2021–2025, w̄_R at h_w = 400 unless stated, sd(w̄_R) = 0.53; CI = percentile of 200 resamples of the 40 blocks)
 
-- The field itself adds ~4,600 log-likelihood points over the fixed effects; the correction adds a
-  further ~610 with no extra parameters. β̂ is stable across h (0.83–0.88) and α; −c/b drifts with h
-  and α as a first-order approximation should, and stays inside the bootstrap interval.
-- CI: 200 block resamples, sd 0.12, percentile [0.63, 1.08]; every resample's maximum was bracketed.
-- **Reading β:** a report from a place one sd above the citywide reporting propensity (sd of w_R at
-  reports = 0.53) counts e^{−0.86 × 0.53} ≈ 0.63 of a report; one sd below counts ≈ 1.6. The smoother
-  h_w = 600 surface gives β̂ = 1.03 with a larger fit gain (+748), but the same correction strength:
-  β · sd(w_R) = 0.45 at 400 m vs 0.47 at 600 m. β is in units of the w_R scale; the product is the
-  comparable quantity.
-- **Torus-shift null:** the real map's Δℓ on the coarse grid is +592; the best of 50 shifted maps
-  reaches +226 (mean +11, 95th percentile +51); p = 0.00. The gain comes from where the poles put
-  w_R, not from adding any smooth map.
-- **Outage placebo:** slope +0.25 (se 0.09) and Δℓ +218 for the field built from outage reports, vs
-  +0.95 (se 0.08) and +4,269 for dumping. A small generic-311 component exists (5% of the dumping
-  signal); the dumping field is not just 311 activity.
+| reading of the slope | β | robust se | block-bootstrap 95% CI | β · sd(w̄_R) |
+|---|---|---|---|---|
+| **main: Poisson, exposure offset, 2021–25** | **0.62** | 0.11 | **[0.28, 0.95]** | **0.33** |
+| reports 2022–23 only | 0.65 | 0.11 | [0.29, 0.98] | 0.34 |
+| w_R at h_w = 600 | 0.59 | 0.12 | [0.21, 0.98] | 0.29 |
+| least squares of log(reports / exposure) | 0.85 | 0.10 | [0.38, 1.30] | 0.45 |
+| exposure elasticity free (γ = 0.10) | −0.02 | 0.06 | [−0.32, 0.25] | −0.01 |
+| 40 block fixed effects (within-block) | 1.06 | 0.08 | [0.80, 1.29] | 0.56 |
 
-**Table 2 — out-of-sample, buffered spatially blocked 10-fold CV** (`cv/table2.csv`; 20–31% of
-training visits dropped by the 1.2 km buffer per fold)
+- **β̂ = 0.62 [0.28, 0.95].** A block group one sd chattier files e^{0.33} ≈ 1.4× the dumping reports at
+  equal true dumping; in the maps a report from such a place counts 0.72 of a report, one from a place
+  one sd quieter 1.4. The archived two-equation decomposition found 0.58 on its own (unsmoothed,
+  shrunk) w_R scale.
+- **The slope is not a stable quantity.** The six readings span −0.02 to 1.06 and the bootstrap interval
+  of the main reading is three times wider than its robust se says (spatial clustering of the residual).
+  Two facts drive this: dumping reports barely scale with SafeGraph stops across block groups
+  (elasticity γ = 0.10 when freed, against the 1 the "per stop" rate imposes), and w̄_R is correlated
+  with log exposure (−0.31). Imposing the offset gives 0.62; letting the elasticity float leaves no
+  slope at all; comparing only neighbouring block groups (block fixed effects, broad contrasts removed)
+  gives 1.06. The identifying assumption — true dumping per stop unrelated to w_R — therefore fails in a
+  direction that depends on how the comparison is made, and nothing in 311 can adjudicate. This is the
+  honest uncertainty of a survey-free β; the survey (Table 2) is the only external check.
+- **Torus-shift null:** the real map's deviance gain is 16,410; the best of 50 shifted w_R rasters reaches
+  8,779 (mean 1,530, 95th percentile 7,525), p = 0.00. The slope is specific to where the poles put w_R.
 
-| spec, h = 800 | OOF ℓ / visit | Somers' D | gain over raw ± fold SE | folds better |
+**Table 2 — the survey as the test** (`survey/summary.json`, `survey/table2.csv`; month + surveyor FE,
+h = 800; 72,084 visits; ℓ with FE only = −53,681, ℓ(0) raw field = −49,057)
+
+| in sample | |
+|---|---|
+| Δℓ(β̂ = 0.62) = ℓ(β̂) − ℓ(0) | **+559** (no extra parameters) |
+| the survey's own β: argmax ℓ(β), block-bootstrap 95% CI | **0.86 [0.63, 1.09]** (0.88 / 0.83 at h = 500 / 1200) |
+| loss ℓ(β_survey) − ℓ(β̂) | 51 |
+| β̂ inside the survey's interval? | **no** — 0.62 sits just below the lower end, 0.63 |
+| outage placebo: linear slope, Δℓ vs FE | outage +0.25 (se 0.09), +218  vs  dumping +0.95 (se 0.08), +4,269 |
+
+| out of sample, buffered spatially blocked 10-fold CV (20–31% of training visits dropped by the 1.2 km buffer) | OOF ℓ / visit | Somers' D | gain over raw ± fold SE | folds better |
 |---|---|---|---|---|
 | FE only | −0.814 | 0.546 | | |
-| raw field (S0) | −0.724 | 0.638 | — | — |
-| linear raw + c·w̄ (S1) | −0.710 | 0.653 | +0.0138 ± 0.0061 | 8/10 |
-| **corrected, β in-fold (S2)** | **−0.710** | **0.652** | **+0.0137 ± 0.0042** | **9/10** |
+| raw field (S0), h = 800 | −0.724 | 0.638 | — | — |
+| **corrected at β̂ = 0.62 (S2), nothing chosen in-fold** | **−0.712** | **0.651** | **+0.0123 ± 0.0029** | **9/10** |
 
-β chosen on the training folds: 0.8 in eight folds, 1.0 in two. At h = 500 / 1200 the raw field
-scores −0.731 / −0.721 and S1 −0.719 / −0.707. Block-level calibration on the 40 held-out blocks:
-slope 1.02 (raw) and 1.01 (corrected), correlation 0.86 → 0.88, block RMSE 0.144 → 0.136.
+- The correction at the block-group β̂ helps on the survey: +559 in sample (92% of the +610 the survey's own
+  value reaches) and +0.0123 ± 0.0029 per visit out of sample, 9 of 10 folds, with nothing chosen in-fold.
+- The survey prefers a stronger correction than 311 alone gives: 0.86 vs 0.62, and β̂ falls just outside the
+  survey's interval. The direction is consistent with the within-block reading in Table 1 (1.06): comparing
+  block groups citywide understates the slope, because quiet block groups with high exposure are also the
+  cleaner ones per stop.
+- Raw field at h = 500 / 1200: −0.731 / −0.721. Block-level calibration on the 40 held-out blocks: slope 1.02
+  (raw) and 1.01 (corrected), correlation 0.86 → 0.88, block RMSE 0.144 → 0.136.
+- A small generic-311 component exists (the outage field carries 5% of the dumping field's gain); the dumping
+  field is not just 311 activity.
 
-**Maps** (`surface/`, 105,979 cells of 50 m, h = 800, β̂ = 0.86; `fig3_maps.png`)
+**Maps** (`surface/`, 105,979 cells of 50 m, h = 800, β̂ = 0.62; `fig3_maps.png`)
 
 | | 2021–2025 (116,772 reports) | 2022–2023 (46,608 reports) |
 |---|---|---|
-| citywide rate, raw → corrected (per year per 1,000 stops) | 1.19 → 1.26 | 1.19 → 1.26 |
+| citywide rate, raw → corrected (per year per 1,000 stops) | 1.19 → 1.21 | 1.19 → 1.20 |
 | cell rate p1 / p50 / p99, raw | 0.01 / 0.90 / 5.85 | 0.02 / 0.89 / 6.16 |
-| cell rate p1 / p50 / p99, corrected | 0.01 / 0.89 / 8.62 | 0.02 / 0.86 / 8.84 |
-| correction factor B/A, p1 / p50 / p99 | 0.49 / 0.97 / 3.88 | 0.50 / 0.97 / 3.73 |
-| block-group Spearman with the survey map C, raw → corrected | 0.66 → 0.69 | 0.66 → 0.69 |
+| cell rate p1 / p50 / p99, corrected | 0.01 / 0.88 / 7.27 | 0.02 / 0.86 / 7.43 |
+| correction factor B/A, p1 / p50 / p99 | 0.59 / 0.97 / 2.58 | 0.60 / 0.97 / 2.47 |
+| block-group Spearman with the survey map C, raw → corrected | 0.66 → 0.69 | 0.66 → 0.68 |
 | block-group Spearman with observed mean rating, raw → corrected | 0.68 → 0.72 | 0.68 → 0.71 |
-| cell-level Spearman with C (98.5% of cells), raw → corrected | 0.64 → 0.65 | 0.64 → 0.64 |
+| cell-level Spearman with C (98.5% of cells), raw → corrected | 0.64 → 0.66 | 0.64 → 0.65 |
 
-- The correction halves the reported rate in the highest-propensity cells (factor 0.49 at p1) and scales
-  it up almost fourfold in the lowest (3.9 at p99); the median cell barely moves (0.97). The corrected
-  citywide total is 6% above the raw one because the weights are not renormalised.
-- The two windows give the same picture (cell-level correlation of the 2021–25 and 2022–23 corrected
-  maps is high and the correction factors are nearly identical), so the five-year map is the deliverable
-  and the two-year one the like-for-like comparison with the survey.
+- The correction takes 40% off the reported rate in the highest-propensity cells (factor 0.59 at p1)
+  and scales it up 2.6× in the lowest (p99); the median cell barely moves (0.97). The corrected
+  citywide total is 2% above the raw one because the weights are not renormalised. The corrected map
+  agrees with the survey better than the raw one at every level (block groups 0.66 → 0.69).
+- The two windows give the same picture (the correction factors are nearly identical), so the
+  five-year map is the deliverable and the two-year one the like-for-like comparison with the survey.
 - C: month and surveyor effects explain 33% of rating variance; the adjusted, smoothed rating has
   p1 / p50 / p99 = 0.93 / 1.47 / 2.03 and covers 98.5% of the support.
 - Appendix snapshot (120-day field through the sigmoid, `A1_rating_snapshot.png`): E[rating] median
-  1.26 on 2023-06-30; block-group Spearman with observed 0.71 (raw 0.68); 0.74 / 0.70 on 2025-12-31.
+  1.26 on 2023-06-30; block-group Spearman with observed 0.71 (raw 0.68); 0.73 / 0.70 on 2025-12-31.
 
 **District zooms** (`districts/districts.csv`, `fig4_central.png`, `fig4_south.png`; 2021–25 window)
 
@@ -166,47 +205,96 @@ slope 1.02 (raw) and 1.01 (corrected), correlation 0.86 → 0.88, block RMSE 0.1
 |---|---|---|---|
 | block groups / reports / visits | 143 / 13,562 / 5,022 | 111 / 13,714 / 4,710 | 1,335 / 116,772 / 72,084 |
 | mean w_R at reports (0 = citywide) | +0.22 | +0.52 | +0.05 |
-| report rate as filed → corrected, × citywide | 0.61 → 0.51 | 1.71 → 1.08 | 1 → 1 |
-| district correction factor; cell p10 / p50 / p90 | 0.90; 0.64 / 0.93 / 1.31 | 0.68; 0.56 / 0.67 / 1.39 | 1.08; 0.65 / 0.97 / 1.85 |
+| report rate as filed → corrected, × citywide | 0.61 → 0.54 | 1.71 → 1.24 | 1 → 1 |
+| district correction factor; cell p10 / p50 / p90 | 0.91; 0.72 / 0.94 / 1.20 | 0.75; 0.66 / 0.74 / 1.21 | 1.03; 0.73 / 0.97 / 1.53 |
 | survey: observed mean rating; map C mean | 1.25; 1.38 | 1.66; 1.51 | 1.56; 1.49 |
-| block-group Spearman with C, raw → corrected | 0.05 → −0.01 | 0.22 → 0.28 | 0.66 → 0.69 |
-| citywide model's Δℓ on the district's visits (share of +609) | +72 (12%) | +132 (22%) | +609 |
-| own β̂; Δℓ_d; loss at the citywide β̂ | 1.57; +23; 9.9 | 0.31; +1; 3.6 | 0.86; +610; 1.7 |
+| block-group Spearman with C, raw → corrected | 0.05 → 0.02 | 0.22 → 0.26 | 0.66 → 0.69 |
+| β from the district's own block groups (robust se) | 1.26 (0.19) | 1.07 (0.17) | 0.62 (0.11) |
+| citywide rating model's gain on the district's visits (share of +559) | +60 (11%) | +101 (18%) | +559 |
 
 - South Philadelphia is the chattiest large district (mean w_R +0.52; only Central Northeast is higher): it
-  files 1.7× the citywide report rate per stop and the correction brings it to 1.08×. The factor is nearly
-  uniform inside the district (p10–p50 0.56–0.67), so there the correction is a level shift: the citywide
-  model's largest single gain comes from these visits (+132), while the profile refitted on them alone is
-  flat (Δℓ +1; β is not identified from within-district variation). Block-group agreement with the survey
-  is weak on either map (0.22 → 0.28).
+  files 1.7× the citywide report rate per stop and the correction brings it to 1.24×. The factor is nearly
+  uniform inside the district (p10–p50 0.66–0.74), so there the correction is a level shift; the citywide
+  rating model's largest single gain comes from these visits (+101). Block-group agreement with the survey
+  is weak on either map (0.22 → 0.26).
 - Center City files 0.61× the citywide rate per stop (its SafeGraph exposure is the city's largest) and is
-  also chatty (+0.22), so the correction lowers it to 0.51×. w_R varies block to block inside the district
-  (panel D) and the district alone would correct harder (own β̂ 1.57, Δℓ +23; naive loss 9.9 at the citywide
-  β̂). The survey has almost no spatial structure to rank inside Center City (adjusted mean 1.38; block-group
-  Spearman ≈ 0 for both maps), so the zoom cannot show whether the correction improves the ranking there.
-- Closure: the 18 district gains sum to the citywide ℓ(0.9) − ℓ(0) = +609 exactly. The gain is positive in
-  15 districts; the largest are South (+132), River Wards (+103), Lower North (+101) and North (+88);
-  Upper Northwest loses 70.
+  also chatty (+0.22), so the correction lowers it to 0.54×. The survey has almost no spatial structure to
+  rank inside Center City (adjusted mean 1.38; block-group Spearman ≈ 0 for both maps), so the zoom cannot
+  show whether the correction improves the ranking there.
+- **Within districts the slope is steeper than citywide.** β from a district's own block groups is above 0.8
+  in 12 of the 18 districts (range −0.16 to 2.17; Center City 1.26, South 1.07, North 0.99, Lower North 1.12),
+  the same message as the within-block reading of Table 1: the citywide 0.62 is pulled down by contrasts
+  between districts, which is where exposure and true dumping co-vary with w_R.
+- Closure: the 18 district gains sum to the citywide Δℓ(β̂) = +559 exactly. The gain is positive in 17
+  districts; the largest are South (+101), River Wards (+98), North (+87) and Lower North (+83); Upper
+  Northwest loses 38.
 
-**Checks that passed:** sparse-vs-dense unit test (1.6e-15); interior maximum of ℓ(β) at every h;
-CI excludes 0; −c/b inside the CI; torus p = 0; CV gain positive in 9/10 folds and beyond its SE;
-in-fold β inside the CI; block calibration slope ≈ 1; corrected surface ranks block groups better
-than the raw one.
+**Table 3 — the plain comparison with the survey** (`validate/table3.csv`, `validate/summary.json`,
+`fig6_validation.png`; 1,290 block groups with ≥ 10 visits, reports 2022–23 per unit of exposure)
+
+| block groups vs the survey | as filed | corrected (β̂ = 0.62) | at the survey's β (0.86) |
+|---|---|---|---|
+| Spearman with the adjusted mean rating | 0.510 | **0.542** (gain +0.032, 95% [+0.013, +0.054]) | 0.546 |
+| same, with 06's kernel maps instead of counts | 0.581 | 0.608 | |
+| dirtiest tenth per the survey caught by 311's top tenth | 28% | 30% | 31% |
+| mean \|311 rank − survey rank\| (percentiles) | 0.222 | 0.217 | |
+| block groups moved closer / further from the survey's rank | | 50% / 49% | |
+| 311 rate in survey quintiles Q1 (cleanest) … Q5 (dirtiest), × citywide | 1.02, 1.22, 1.75, 2.52, 3.56 | 0.87, 1.01, 1.52, 2.49, 3.75 | 0.81, 0.92, 1.42, 2.45, 3.81 |
+| dirtiest / cleanest quintile ratio | 3.5 | 4.3 | 4.7 |
+| chatty − quiet tertile gap, rating points (survey: −0.10) | +0.02 | −0.03 | −0.05 |
+
+- **Direction right, size modest.** Block groups the survey calls dirtier do file more reports, and the
+  correction steepens that relation: it takes reports away from the cleanest quintiles (×1.02 → ×0.87)
+  and adds them to the dirtiest (×3.56 → ×3.75), so the dirtiest-to-cleanest ratio rises from 3.5 to 4.3.
+  Rank agreement improves by a small but definite amount (+0.03 Spearman, interval excludes 0); the
+  2021–25 window gives the same (+0.037 [+0.017, +0.062]).
+- **The bias it removes is the chatty-neighbourhood one.** The survey rates the chattiest tertile 0.10
+  points *cleaner* than the quietest; 311 as filed, read as a rating, calls it 0.02 points dirtier; corrected
+  it says 0.03 cleaner, at the survey's β 0.05 cleaner. The correction turns the sign the right way and
+  closes about a third of the gap; the survey's own β closes half.
+- **Most block groups barely move.** Half end closer to the survey's rank and half further; the mean
+  absolute rank disagreement falls from 0.222 to 0.217. Where 311 still disagrees after the correction
+  (panel E) is the same pattern as before, only paler: the correction is a modest, directionally right
+  adjustment, not a reordering. The map version (06's kernel rasters) agrees better with the survey than
+  the raw counts at both stages (0.58 → 0.61), as smoothing should.
+- **Before / after in one picture** (`fig6b_before_after.png`): the block-group report rate as filed, corrected
+  and their difference (top row), and the fit to the survey of each — 311 read as a rating through its own
+  straight line (one log unit of report rate ≈ 0.10 rating points) minus what the survey found — and the
+  change in that misfit (bottom row). Mean |misfit| 0.186 → 0.183 rating points; 56% of block groups end
+  closer to the survey, 44% further. The misfit map keeps its shape: 311 reads South and West Philadelphia
+  and the Lower Northwest dirtier than the survey found and the Northeast and North Delaware cleaner, before
+  and after; the correction pales the first group and does nothing for the second.
+
+**Checks that passed:** sparse-vs-dense unit test (1.6e-15); β̂'s bootstrap CI excludes 0; torus p = 0;
+Δℓ(β̂) = +559 > 0 on the survey; CV gain positive in 9/10 folds and four times its SE; block calibration
+slope ≈ 1; corrected counts and surface rank block groups better than the raw ones (Table 3, interval
+excludes 0); the chatty − quiet gap has the survey's sign after the correction; district gains close exactly.
+**Checks that did not pass:** β̂ = 0.62 falls just outside the survey's interval [0.63, 1.09]; the six
+readings of the block-group slope disagree (−0.02 to 1.06), so the survey-free β is a reading under an
+assumption, not a measurement.
 
 ## Choices and where they are justified
 
 | choice | value | rule / evidence | script |
 |---|---|---|---|
 | h_w | 400 m (alt 600) | smallest with reliability ≥ 0.95 | 02 |
-| h | 800 m (500, 1200) | smallest within 0.01 Spearman of max | 03 |
+| h | 800 m (500, 1200) | smallest within 0.01 Spearman of max (a map bandwidth; β does not depend on it) | 03 |
 | τ | 120 d | flat sweep + placebo tie | 03 |
-| α | 1 prior report (alt 0.25) | zeros 0.35% at h = 800; sensitivity row | 03, 04 |
-| FE | month-of-sample + surveyor (alt month only) | sensitivity row | 04 |
+| α | 1 prior report | zeros 0.35% at h = 800 | 03 |
+| β estimator | Poisson, exposure offset, no controls | the model's own likelihood with counts aggregated; the five other readings sit beside it | 04 |
+| β window | 2021–2025 (alt 2022–23) | the deliverable map's window | 04 |
+| FE | month-of-sample + surveyor | fixed | 05 |
 | spline df | 5 | fixed | design.py |
 | blocks / buffer | 40 / 1.2 km | fixed | 01, 05 |
 
 ## Stated limitations
 
+- **β rests on an untestable-from-311 assumption** (true dumping per unit of exposure unrelated to w_R
+  across block groups) and the six readings in Table 1 show how much the slope moves when that
+  comparison is made differently (−0.02 to 1.06). The survey is the only external check; in this run it
+  prefers a stronger correction than β̂ (Table 2).
+- SafeGraph stops are a weak exposure for dumping at block-group level (elasticity 0.10); the rate "per
+  stop" is a definition, not a fitted relation, and it enters β through the offset.
 - w_R is estimated, not known; the bootstrap conditions on it (reliability 0.95). Its scale depends
   on h_w, so β is reported together with β · sd(w_R).
 - The outage placebo shows a small generic-311 component in the dumping field (5% of its fit gain).
@@ -214,7 +302,7 @@ than the raw one.
   differences between specs are immune, absolute out-of-fold levels are optimistic.
 - Euclidean, not street-network, distances.
 - The 2025 surface is an extrapolation of report rates through a sigmoid
-  calibrated on 2022–23; it is not a validated litter measurement.
+  fitted on 2022–23; it is not a validated litter measurement.
 
 ## Inputs
 

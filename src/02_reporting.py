@@ -23,6 +23,7 @@ HW_ALT is the next smaller radius (sensitivity row in 04).
 Writes
   output/wR_events.parquet   w_R at every dumping report   (wR_h{HW0}, wR_h{HW_ALT})
   output/wR_visits.parquet   w_R at every survey visit     (same columns)
+  output/wR_support.parquet  w_R at every support cell     (same columns; 04 averages it per block group)
   output/wR_raster.npz       100 m raster of w_R at HW0, NaN outside the city
   output/choices.json        HW0, HW_ALT, the reliability table
   output/figures/02_wR_map.png
@@ -68,9 +69,10 @@ def main():
     rbar = len(r) / len(poles)                       # citywide outage reports per pole
     ev = pd.read_parquet(os.path.join(OUT, "points_dumping.parquet"))
     v = pd.read_parquet(os.path.join(OUT, "visits.parquet"))
-    ev_xy, v_xy = ev[["x", "y"]].to_numpy(), v[["x", "y"]].to_numpy()
+    sup = pd.read_parquet(os.path.join(OUT, "support_grid.parquet"))
+    ev_xy, v_xy, sup_xy = ev[["x", "y"]].to_numpy(), v[["x", "y"]].to_numpy(), sup[["x", "y"]].to_numpy()
     print(f"  {len(r):,} outage reports {OUTAGE_WINDOW[0].date()} → {OUTAGE_WINDOW[1].date()} over {len(poles):,} poles "
-          f"({rbar:.3f} per pole); queries: {len(ev):,} dumping reports, {len(v):,} visits")
+          f"({rbar:.3f} per pole); queries: {len(ev):,} dumping reports, {len(v):,} visits, {len(sup):,} support cells")
 
     # --- choose h_w: reliability at the visits -------------------------------
     print("\n[h_w] Poisson-noise reliability at the survey visits")
@@ -99,10 +101,12 @@ def main():
         centre[h] = float(wp.mean())
     w_ev = {h: w_surface(ev_xy, out_xy, out_tree, pole_xy, pole_tree, h, rbar)[0] - centre[h] for h in (HW0, HW_ALT)}
     w_v = {h: w_vis[h] - centre[h] for h in (HW0, HW_ALT)}
+    w_s = {h: w_surface(sup_xy, out_xy, out_tree, pole_xy, pole_tree, h, rbar)[0] - centre[h] for h in (HW0, HW_ALT)}
     pd.DataFrame({f"wR_h{h}": w_ev[h] for h in (HW0, HW_ALT)}).to_parquet(os.path.join(OUT, "wR_events.parquet"), index=False)
     pd.DataFrame({f"wR_h{h}": w_v[h] for h in (HW0, HW_ALT)}).to_parquet(os.path.join(OUT, "wR_visits.parquet"), index=False)
+    pd.DataFrame({f"wR_h{h}": w_s[h] for h in (HW0, HW_ALT)}).to_parquet(os.path.join(OUT, "wR_support.parquet"), index=False)
     print(f"  at dumping reports: sd {w_ev[HW0].std():.3f} (h_w {HW0}), {w_ev[HW_ALT].std():.3f} (h_w {HW_ALT}); "
-          f"correlation between the two {np.corrcoef(w_ev[HW0], w_ev[HW_ALT])[0, 1]:.3f}")
+          f"correlation between the two {np.corrcoef(w_ev[HW0], w_ev[HW_ALT])[0, 1]:.3f}; at support cells: sd {w_s[HW0].std():.3f}")
 
     # raster for the torus-shift null and the map
     geom = gpd.read_file(os.path.join(OUT, "cbg_geom.geojson")); geom["GEOID"] = geom["GEOID"].astype(str)
@@ -148,7 +152,8 @@ def main():
     style(ax, f"Block-group centroids: kernel w_R vs own log rate (Spearman {rho:.2f})",
           "log(outages / poles), centred", "kernel w_R at centroid")
     fig.tight_layout(); fig.savefig(os.path.join(FIG, "02_wR_map.png"), dpi=160); plt.close(fig)
-    print(f"\nDone in {time.time() - t0:.0f} s. Saved → output/wR_events.parquet, wR_visits.parquet, wR_raster.npz, choices.json")
+    print(f"\nDone in {time.time() - t0:.0f} s. Saved → output/wR_events.parquet, wR_visits.parquet, wR_support.parquet, "
+          f"wR_raster.npz, choices.json")
 
 
 if __name__ == "__main__":

@@ -9,9 +9,9 @@ A. 311 illegal dumping as reported — long-term average report rate,
    in reports per year per RATE_PER SafeGraph monthly stops, for each window in
    LONG_WINDOWS (all five years; the two survey years).
 B. The same after the reporting correction — every report weighted by
-   exp(−β̂ w_R(s_j)), with β̂ from 04. "Reports that would have been filed at the
-   citywide-average reporting propensity": the corrected picture of dumping.
-   B / A is the correction factor.
+   exp(−β̂ w_R(s_j)), with β̂ from 04 (the block groups; no survey). "Reports
+   that would have been filed at the citywide-average reporting propensity":
+   the corrected picture of dumping. B / A is the correction factor.
 C. The Litter Index on its own — survey ratings with month-of-sample and
    surveyor effects removed (one OLS on the survey alone), kernel-smoothed at
    the visit locations with the same K_H0, blank where the kernel sees fewer
@@ -416,7 +416,7 @@ def _figures(R, geom, LT, S, snap, beta_hat, HW0, ev, v):
     E = snap["in"]["E_rating_corr"]; e_mean = float(np.nanmean(E)); e_lim = sym_lim(E - e_mean)
     d = snap["in"]["E_rating_corr"] - snap["in"]["E_rating_raw"]; d_lim = sym_lim(d, q=0.99)
     fig, axes = plt.subplots(1, 3, figsize=(19, 8))
-    show(axes[0], R.grid(E - e_mean), R, geom, f"311 → E[rating] through the calibrated sigmoid, {DATE_IN.date()}, corrected",
+    show(axes[0], R.grid(E - e_mean), R, geom, f"311 → E[rating] through the fitted sigmoid, {DATE_IN.date()}, corrected",
          f"E[rating] − citywide mean ({e_mean:.2f}), rating points", -e_lim, e_lim, CMAP_LITTER)
     show(axes[1], R.grid(d), R, geom, "effect of the correction on E[rating]: corrected − raw", "rating points", -d_lim, d_lim, CMAP_LITTER)
     show(axes[2], R.grid(snap["out"]["E_rating_corr"] - e_mean), R, geom, f"E[rating], {DATE_OUT.date()} — EXTRAPOLATION",
