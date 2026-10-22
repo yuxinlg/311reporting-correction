@@ -18,6 +18,8 @@ method and the results.
 | `src/06_surface.py` | the maps: 311 as filed (A) and corrected (B) as long-term rates for 2021–25 and 2022–23, the survey on its own (C), their agreement; the conclusion map (B alone, planning districts named) and its delta B − A; appendix snapshot through the sigmoid | 30 s | `surface/dumping_*.tif`, `litter_survey.tif`, `litter_index_*.tif`, `surface_cbg.csv`, `figures/fig3_maps.png`, `fig5_dumping_corrected.png`, `fig5b_correction_delta.png`, `A1_*`, `A2_*` |
 | `src/07_districts.py` | the same maps, β and survey check inside one planning district: Center City ("Central") and South Philadelphia ("South") get figures, all 18 districts get a table row (rates, w_R, agreement with the survey, β from the district's own block groups, the citywide rating model's gain on its visits) | 20 s | `districts/districts.csv`, `cbg_district.csv`, `summary.json`, `figures/fig4_central.png`, `fig4_south.png` |
 | `src/08_validate.py` | the plain comparison: block groups ranked by their own survey visits vs their 311 report rate as filed and corrected — rate by survey quintile, rank agreement with bootstrap intervals, disagreement maps before and after, chatty vs quiet tertiles in rating points; a before / after figure (rate as filed, corrected, difference; fit to the survey of each, change in the misfit) | 8 s | `validate/table3.csv`, `cbg.csv`, `summary.json`, `figures/fig6_validation.png`, `fig6b_before_after.png` |
+| `src/09_validate_divisions.py` | 08 again with the city's published Litter Index 2023–25 as the test (`data/Litter_Index_Neighborhoods.geojson`, streets score per division pooled by its visits) and 311 reports of the same years per division; rows per year, for 06's kernel map rebuilt for 2023–25, and for 2023–24 against the city's visit table (`data/Litter_Index_Surveys.csv`, month + surveyor adjusted as in 08, and the plain mean) | 20 s | `validate_divisions/table3d.csv`, `divisions.csv`, `summary.json`, `figures/fig7_divisions.png`, `fig7b_divisions_before_after.png` |
+| `src/download_litter_surveys.py` | pulls the city's visit-level survey table from its feature service into `data/Litter_Index_Surveys.csv` (OpenDataPhilly's "surveys" link returns the neighborhood layer) | 1 min | `data/Litter_Index_Surveys.csv` |
 
 Headline (2026-10-13): β̂ = 0.62, block-bootstrap 95% CI [0.28, 0.95], from a Poisson regression of
 dumping reports on w_R across the 1,335 block groups, no survey; the five other readings of that slope
@@ -32,11 +34,21 @@ kernel sums), `src/ordinal.py` (proportional-odds logit), `src/design.py`
 live in `output/choices.json`. Logs of each run: `output/logs/run_0X.log`.
 
 ```bash
-cd /Users/yuxin/Dropbox/DDDI/311reporting-correction && for s in 01_data 02_reporting 03_field 04_beta 05_survey 06_surface 07_districts 08_validate; do python -u src/$s.py 2>&1 | tee output/logs/run_${s%%_*}.log; done
+cd /Users/yuxin/Dropbox/DDDI/311reporting-correction && for s in 01_data 02_reporting 03_field 04_beta 05_survey 06_surface 07_districts 08_validate 09_validate_divisions; do python -u src/$s.py 2>&1 | tee output/logs/run_${s%%_*}.log; done
 ```
 
 Environment: miniconda base, Python 3.12; numpy, pandas, geopandas, scipy,
 patsy, rasterio, matplotlib. No JAX / NumPyro / statsmodels.
+
+Sensitivity run without the visits the city omitted from its index (`DROP_CITY_OMITTED=1`, 01 drops them;
+`PIPELINE_OUT` sends every output elsewhere):
+
+```bash
+cd /Users/yuxin/Dropbox/DDDI/311reporting-correction && for s in 01_data 02_reporting 03_field 04_beta 05_survey 06_surface 07_districts 08_validate; do PIPELINE_OUT=$PWD/output/sens_no_omitted DROP_CITY_OMITTED=1 python -u src/$s.py 2>&1 | tee output/sens_no_omitted/logs/run_${s%%_*}.log; done
+```
+
+Result (2026-10-21, 62,790 visits): nothing moves — β̂ 0.62, the survey's β 0.85 [0.60, 1.06] (β̂ now inside),
+Δℓ(β̂) +526, CV gain +0.0155 ± 0.0051 (9/10), Table 3 gain +0.033 [+0.014, +0.055]. Table in `notes/METHOD.md`.
 
 ## Paper items the pipeline produces
 
@@ -58,6 +70,9 @@ patsy, rasterio, matplotlib. No JAX / NumPyro / statsmodels.
   as filed and corrected, with their own survey visits (quintiles, rank agreement,
   disagreement maps, chatty vs quiet; the before / after maps of the rate and of the
   fit to the survey).
+- Table 3b `output/validate_divisions/table3d.csv`, Fig 7 `fig7_divisions.png` and Fig 7b
+  `fig7b_divisions_before_after.png`: the same comparison with the city's published
+  Litter Index 2023–25 per division and 311 reports of those years.
 - District table `output/districts/districts.csv` and Fig 4 `fig4_central.png`, `fig4_south.png`:
   the maps, the district's own β and the survey check inside Center City and South
   Philadelphia (planning districts), one table row per district for all 18.

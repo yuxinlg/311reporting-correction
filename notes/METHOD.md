@@ -1,6 +1,6 @@
 # Method — point-level 311 dumping correction, with the Litter Index as the test
 
-One page. Every number here is produced by `src/01_data.py` … `src/08_validate.py`
+One page. Every number here is produced by `src/01_data.py` … `src/09_validate_divisions.py`
 from the raw inputs in `data/`; nothing is taken from the archived pipeline.
 
 ## The question
@@ -14,7 +14,7 @@ continuous field. The Litter Index field survey does not enter the estimate of �
 it is the test: does the correction at β̂ predict the ratings better than the raw
 reports, and which β would the survey itself have chosen?
 
-## Eight steps
+## Nine steps
 
 1. **Reporting propensity from poles** (`02_reporting.py`)
    `w_R(s) = log[ Σ_outages K_hw(|s−s_j|) / Σ_poles K_hw(|s−s_p|) ] − mean over poles`
@@ -118,7 +118,19 @@ reports, and which β would the survey itself have chosen?
    before / after side by side: the rate as filed, corrected, their difference; the fit to the survey of
    each (311 read as a rating minus the survey's rating) and the change in the misfit.
 
-## Results (run of 2026-10-13; `output/choices.json`, `beta/`, `survey/`, `surface/`, `districts/`)
+9. **The published Litter Index as a second test** (`09_validate_divisions.py`): step 8 again on the city's own
+   published index for 2023–2025 (`data/Litter_Index_Neighborhoods.geojson`: the mean visit rating per electoral
+   division, `streets_division_score`, and the visits behind it, `blocks_averaged`), against 311 reports of the
+   same three years. Ground truth per division = the three annual scores pooled by their visit counts (≥ 10 visits;
+   1,699 divisions); no month or surveyor adjustment is possible, the file holds means. Exposure and w̄_R come from
+   the support cells inside the division, the bootstrap block from the block group under its representative
+   point. Extra rows: each year on its own (that year's reports against that year's score) and 06's kernel map
+   rebuilt for 2023–25. The city's public visit table (`data/Litter_Index_Surveys.csv`, 2023 and 2024 only,
+   pulled by `download_litter_surveys.py`) gives 08's own ground truth for those two years: the visits the city
+   omitted from its index dropped, ratings with month + surveyor effects removed by one OLS, averaged per
+   division; two more rows test the 2023–24 reports against that (adjusted, and the plain mean).
+
+## Results (run of 2026-10-13; `output/choices.json`, `beta/`, `survey/`, `surface/`, `districts/`; step 9 run 2026-10-20)
 
 **Table 1 — β from the block groups** (`beta/table1.csv`; 1,335 block groups, 116,751 dumping reports
 2021–2025, w̄_R at h_w = 400 unless stated, sd(w̄_R) = 0.53; CI = percentile of 200 resamples of the 40 blocks)
@@ -265,11 +277,66 @@ h = 800; 72,084 visits; ℓ with FE only = −53,681, ℓ(0) raw field = −49,0
   and the Lower Northwest dirtier than the survey found and the Northeast and North Delaware cleaner, before
   and after; the correction pales the first group and does nothing for the second.
 
+**Table 3b — the published Litter Index 2023–25 as the test** (`validate_divisions/table3d.csv`, `summary.json`,
+`fig7_divisions.png`, `fig7b_divisions_before_after.png`; 1,699 divisions with ≥ 10 visits, 67,386 reports 2023–25
+per unit of exposure; the published streets score, no month or surveyor adjustment)
+
+| divisions vs the published streets score | as filed | corrected (β̂ = 0.62) | at the survey's β (0.86) |
+|---|---|---|---|
+| Spearman, 2023–25 pooled | 0.563 | **0.624** (gain +0.061, 95% [+0.041, +0.091]) | 0.641 |
+| same, with 06's kernel map rebuilt for 2023–25 | 0.645 | 0.710 | |
+| Spearman, each year alone: 2023 / 2024 / 2025 | 0.563 / 0.341 / 0.393 | 0.602 / 0.373 / 0.445 (gains +0.039 / +0.033 / +0.052, every interval above 0) | 0.611 / 0.381 / 0.459 |
+| Spearman, 2023–24 reports vs the published 2023–24 score / the city's visit table as a plain mean per division / the same with month + surveyor effects removed (08's ground truth; 58,029 visits, 1,653 divisions) | 0.554 / 0.539 / 0.535 | 0.605 / 0.589 / 0.570 (gains +0.051 / +0.050 / +0.035, every interval above 0) | 0.617 / 0.601 / 0.575 |
+| dirtiest tenth per the index caught by 311's top tenth | 26% | 28% | 28% |
+| mean \|311 rank − index rank\| (percentiles) | 0.210 | 0.196 | |
+| divisions moved closer / further from the index's rank | | 58% [55%, 62%] / 41% | |
+| 311 rate in index quintiles Q1 (cleanest) … Q5 (dirtiest), × citywide | 0.85, 1.19, 1.95, 2.63, 3.44 | 0.65, 0.98, 1.76, 2.58, 3.66 | 0.58, 0.89, 1.68, 2.53, 3.72 |
+| dirtiest / cleanest quintile ratio | 4.0 | 5.6 | 6.4 |
+| chatty − quiet tertile gap, rating points (index: −0.20) | −0.01 | −0.06 | −0.08 |
+| mean \|misfit\| in rating points; divisions closer / further | 0.167 | 0.160; 63% / 37% | |
+
+- **The published index says what the survey said, more strongly.** The gain in rank agreement is twice the
+  block-group one (+0.061 vs +0.032), the interval sits well above 0, each of the three years on its own gains
+  (+0.03 to +0.05), and the kernel map gains as much as the counts (0.645 → 0.710). The correction again takes
+  reports away from the cleanest quintile (×0.85 → ×0.65) and adds them to the dirtiest (×3.44 → ×3.66).
+- **The same chatty-neighbourhood bias.** The index rates the chattiest tertile of divisions 0.20 points cleaner
+  than the quietest; 311 as filed sees no difference (−0.01), corrected −0.06, at the survey's β −0.08. The
+  correction closes about a third of the gap, as on the survey; the survey's stronger β closes more.
+- **Agreement depends on the year of the index.** As filed, 311 agrees with the 2023 index at 0.56 but with the
+  2024 and 2025 indices only at 0.34–0.39; those are the years in which the published scale collapses toward 1
+  (`output/litter_index_eda/summary.md`). The correction's gain holds in every year.
+- **08's own ground truth from the visit table says the same.** With the city's omitted visits dropped and month
+  + surveyor effects removed (they explain 35% of rating variance, as in the 2022–23 survey), the 2023–24 gain is
+  +0.035 [+0.017, +0.061]; with the plain visit mean +0.050. The published score is that plain mean (division
+  Spearman 0.94 with it, 0.74 with the adjusted mean), and the adjustment lowers agreement with 311 slightly:
+  surveyors cover areas, so part of what their effects remove is geography.
+
+**Sensitivity — without the visits the city omitted from its index** (`output/sens_no_omitted/`, run 2026-10-21: the
+whole pipeline with `DROP_CITY_OMITTED=1`; 01 drops the 9,300 raw rows that match the 9,150 visits flagged
+`omit_flag = 1` in the public visit table — three 2023 surveyors whose ratings were 97.5% "1" — leaving 62,790 visits)
+
+| | main run (72,084 visits) | without the omitted visits (62,790) |
+|---|---|---|
+| h_w, h | 400, 800 | 400, 800 |
+| β̂ (04), block-bootstrap CI | 0.62 [0.28, 0.95] | 0.62 [0.22, 0.99] (only the blocks change) |
+| Δℓ(β̂) in sample; the survey's own β | +559; 0.86 [0.63, 1.09], β̂ just outside | +526; 0.85 [0.60, 1.06], **β̂ inside** |
+| CV gain of the corrected field ± fold SE, folds better | +0.0123 ± 0.0029, 9/10 | +0.0155 ± 0.0051, 9/10 |
+| Table 3 Spearman as filed → corrected (gain, CI) | 0.510 → 0.542 (+0.032 [+0.013, +0.054]) | 0.509 → 0.542 (+0.033 [+0.014, +0.055]) |
+| chatty − quiet gap, rating points: survey / 311 as filed / corrected | −0.10 / +0.02 / −0.03 | −0.13 / +0.02 / −0.03 |
+| block-group Spearman of the maps with survey map C, raw → corrected (2021–25) | 0.66 → 0.69 | 0.66 → 0.69 |
+
+- Nothing moves. The surveyor effects had already absorbed those three surveyors' level, so β̂, the survey's β,
+  the gains and the rank agreement are unchanged to the second decimal; the survey's interval shifts down a
+  little and now contains β̂ (lower end 0.60 instead of 0.63). Out-of-fold levels are not comparable between the
+  runs (the dropped visits were almost all rating 1, the easiest to predict); the paired gain is.
+
 **Checks that passed:** sparse-vs-dense unit test (1.6e-15); β̂'s bootstrap CI excludes 0; torus p = 0;
 Δℓ(β̂) = +559 > 0 on the survey; CV gain positive in 9/10 folds and four times its SE; block calibration
 slope ≈ 1; corrected counts and surface rank block groups better than the raw ones (Table 3, interval
-excludes 0); the chatty − quiet gap has the survey's sign after the correction; district gains close exactly.
-**Checks that did not pass:** β̂ = 0.62 falls just outside the survey's interval [0.63, 1.09]; the six
+excludes 0); the chatty − quiet gap has the survey's sign after the correction; district gains close exactly;
+the published 2023–25 index ranks the corrected counts closer than the raw ones, pooled and in each year (Table 3b).
+**Checks that did not pass:** β̂ = 0.62 falls just outside the survey's interval [0.63, 1.09] (inside it,
+[0.60, 1.06], once the visits the city omitted from its index are dropped); the six
 readings of the block-group slope disagree (−0.02 to 1.06), so the survey-free β is a reading under an
 assumption, not a measurement.
 
@@ -310,4 +377,5 @@ Raw data only, via `data/` symlinks: 311 shapefiles (dumping, outage), the pole
 inventory, TIGER block groups, the Litter Index survey CSV, the SafeGraph
 stop count per block group (`alloc_avg_s_cnt` in `cov_cbg.geojson`) as the
 exposure denominator, and the City Planning Commission's 18 planning districts
-(`Planning_Districts.geojson`) for the district zooms.
+(`Planning_Districts.geojson`) for the district zooms. The city's published Litter Index division scores
+(`Litter_Index_Neighborhoods.geojson`, a downloaded file, see `data/README.md`) enter only step 9.

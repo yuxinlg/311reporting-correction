@@ -34,7 +34,7 @@ from scipy.spatial import cKDTree
 
 from config import (DATA, OUT, CRS, EPOCH, STUDY_YEARS, SVC_DUMPING, SVC_OUTAGE, EXPOSURE_COL,
                     PHILLY_COUNTYFP, SURVEY_YEARS, SURVEY_DEPT, BULK_TOKENS, GRID_RES, SUPPORT_DIST,
-                    N_BLOCKS, ensure_dirs)
+                    N_BLOCKS, DROP_CITY_OMITTED, SURVEY_PUBLIC, ensure_dirs)
 
 warnings.filterwarnings("ignore")
 
@@ -165,6 +165,25 @@ def kd_blocks(xy: np.ndarray, w: np.ndarray, n_blocks: int) -> np.ndarray:
     return ids
 
 
+def norm_addr(a) -> str:
+    import re
+    a = str(a).upper().strip()
+    a = re.sub(r"^\d+\s*/\s*", "", a)        # "0 / 7400 PENROSE AVE" -> "7400 PENROSE AVE"
+    return re.sub(r"\s+", " ", a)
+
+
+def drop_city_omitted(df: pd.DataFrame) -> pd.DataFrame:
+    """Sensitivity (DROP_CITY_OMITTED=1): drop the visits the city itself left out of its published index
+    (omit_flag = 1 in the public visit table), matched on survey_start to the minute — both tables are UTC —
+    and the normalised address."""
+    pub = pd.read_csv(os.path.join(DATA, SURVEY_PUBLIC), low_memory=False)
+    pub = pub[pub["omit_flag"] == 1]
+    keys = set(zip(pd.to_datetime(pub["survey_start_ms"], unit="ms").dt.floor("min"), pub["location_std"].map(norm_addr)))
+    drop = pd.Series([k in keys for k in zip(df["ts"].dt.floor("min"), df["Address"].map(norm_addr))], index=df.index)
+    print(f"[survey] SENSITIVITY: dropping {drop.sum():,} visits the city omitted from its index ({len(pub):,} flagged in {SURVEY_PUBLIC})")
+    return df[~drop]
+
+
 def build_visits(cbg: gpd.GeoDataFrame, exposure: pd.Series) -> pd.DataFrame:
     """
     One row per Streets-department survey visit, 2022-23, with a 1-4 rating,
@@ -180,6 +199,8 @@ def build_visits(cbg: gpd.GeoDataFrame, exposure: pd.Series) -> pd.DataFrame:
     if bad.any():
         df.loc[bad, "ts"] = pd.to_datetime(df.loc[bad, "survey_start"], errors="coerce")
     n_raw = len(df)
+    if DROP_CITY_OMITTED:
+        df = drop_city_omitted(df)
     keep = (df["department"].eq(SURVEY_DEPT) & df["ts"].dt.year.isin(SURVEY_YEARS)
             & df["Litter Rating"].between(1, 4) & df["location_id"].notna())
     df = df[keep].copy()

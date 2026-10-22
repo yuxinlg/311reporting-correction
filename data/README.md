@@ -16,6 +16,9 @@ Source root: `/Users/yuxin/Dropbox/DDDI/Illegal-Dumping` (referred to as `$SRC`)
 | `litter_surveys_raw_20250730.csv` | `$SRC/data/CSVFiles/litter_surveys_raw_20250730.csv` | Philadelphia Litter Index field surveys, 74,148 rows. Extracted 2025-07-30. |
 | `Planning_Districts.geojson` | `$SRC/replication/data/Planning_Districts.geojson` | City Planning Commission planning districts, 18 polygons, EPSG:4326, field `dist_name` (Center City = "Central", South Philadelphia = "South", stadiums and Navy Yard = "Lower South"). Used by `07_districts.py` for the district zooms. |
 | `ref_05a_output/` | `$SRC/replication/output/corrected_hawkes_streetlight/` | **Archived pipeline only.** The predecessor `05a` citywide decomposition (β = 0.579), read by the archived `00_triage.py` / `02_reporting.py` at tag `v0-full-pipeline`. The live pipeline (`src/`) never reads it; the link can be omitted if the archive is not re-run. |
+| `Litter_Index_Blocks.geojson` | downloaded file, OpenDataPhilly "Litter Index" (2026-10-20) | Published hundred-block scores, **2017 and 2018 only**, 79,603 street segments, EPSG:4326. Read only by the exploratory `src/eda_litter_index.py`. |
+| `Litter_Index_Neighborhoods.geojson` | downloaded file, OpenDataPhilly "Litter Index" (2026-10-20) | Published division scores, 2017, 2018, 2023, 2024, 2025, about 1,700 divisions per year. Read by `src/eda_litter_index.py` and `src/09_validate_divisions.py`. |
+| `Litter_Index_Surveys.csv` | pulled by `src/download_litter_surveys.py` from the city's `Litter_Index_Surveys` feature service (2026-10-20) | The city's public visit-level survey table: 154,382 rows, years 2017, 2018, 2023, 2024 (no 2022, no 2025). OpenDataPhilly's "surveys" download link returns the neighborhood layer, hence the script. See the notes below. |
 
 ## Recreating the links
 
@@ -51,3 +54,31 @@ Characterised 2026-09-22 before any modelling:
   space. Mean rating is 1.39–1.40 in Aug/Oct but 2.01 in Nov and 1.94 in Mar,
   and CBG mean-survey-month correlates −0.405 with CBG mean rating. Month and
   `Creator` (56 surveyors) effects must be absorbed.
+- **`survey_start` is UTC**, not local time (checked 2026-10-20 against the
+  city's public layer: identical to the minute once that layer's epoch dates
+  are read as UTC). Surveys run in daytime, so year-months are unaffected.
+
+## Notes on the city's public visit table (`Litter_Index_Surveys.csv`)
+
+Compared with the raw CSV on 2026-10-20 (`survey_start` to the minute + address):
+
+- **Same survey, different years.** 99.9% of the raw 2023 Streets visits match a
+  row in the public table; ratings agree for 99.5% of matches, litter types for
+  99.3%. The public table adds 2017–18 (the old method: 49,465 and 36,073 rows,
+  incl. CLIP vacant lots, SEPTA, PWD, PPR, SDP) and a full 2024 Streets season
+  (22,898 visits, April–June, 31 surveyors) that the raw CSV lacks (79 PWD rows
+  only). It has no 2022 (the raw CSV's 27,901) and no 2025.
+- **The city omitted 9,145 of the 2023 Streets visits** (`omit_flag = 1`, 21%;
+  `litter_rating` blank, the rating kept in `omitted_litter_rating`): every visit
+  of three surveyors, 97.5% of whose ratings were 1. The raw CSV, and therefore
+  `visits.parquet`, keeps them (12.7% of the pipeline's visits).
+- **Surveyors are anonymised** (`surveyor_id` such as `surveyor_2023_30`), one
+  code per surveyor per year.
+- **Two coordinate pairs.** `raw_x_coord`/`raw_y_coord` equal the raw CSV's
+  `x`/`y`; `x_coord`/`y_coord` are the city's corrected positions (`geom` codes
+  the method: `AIS` address geocode, `CMID` centerline midpoint, …), a median
+  48 m away. `good_segid` (31% of rows) is the street segment, matching
+  `SEG_ID` in `Litter_Index_Blocks.geojson`.
+- The published `blocks_averaged` per division (49,581 in 2023, 44,211 in 2024)
+  exceeds the public table's visit counts (36,801 kept in 2023, 22,898 in 2024),
+  so the published index is not simply the mean of these rows.

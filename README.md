@@ -48,6 +48,7 @@ archive/    the first, larger pipeline, kept unchanged; reproducible at tag v0-f
 | `06_surface.py` | the maps: 311 as filed (A), corrected (B), the survey on its own (C); the conclusion map and the correction delta | 30 s |
 | `07_districts.py` | the same maps, `β` and survey check inside one planning district (Center City, South Philadelphia); a table row for all 18 | 20 s |
 | `08_validate.py` | the plain comparison: block groups ranked by their own survey visits vs their 311 report rate as filed and corrected (quintiles, rank agreement, disagreement maps, chatty vs quiet) | 3 s |
+| `09_validate_divisions.py` | the same comparison with the city's published Litter Index 2023–25 per division (`data/Litter_Index_Neighborhoods.geojson`) and 311 reports of those years; rows per year and for the kernel map | 15 s |
 
 Every constant lives in `src/config.py`. The data-driven choices (`h_w`, `h`,
 `β̂`, its CI) are recorded by the pipeline in `output/choices.json`.
@@ -60,12 +61,13 @@ rasterio, matplotlib (see `requirements.txt`). No JAX, NumPyro or statsmodels.
 1. Create the symlinks in `data/` as described in [`data/README.md`](data/README.md).
    The raw inputs are Philadelphia 311 service requests (2021–2025), the
    street pole inventory, TIGER 2023 block groups, SafeGraph monthly stops per
-   block group, the Litter Index survey CSV and the City Planning Commission's
-   planning districts.
+   block group, the Litter Index survey CSV, the City Planning Commission's
+   planning districts and the city's published Litter Index division scores
+   (a downloaded file, see `data/README.md`).
 2. Run the scripts in order:
 
 ```bash
-for s in 01_data 02_reporting 03_field 04_beta 05_survey 06_surface 07_districts 08_validate; do python -u src/$s.py 2>&1 | tee output/logs/run_${s%%_*}.log; done
+for s in 01_data 02_reporting 03_field 04_beta 05_survey 06_surface 07_districts 08_validate 09_validate_divisions; do python -u src/$s.py 2>&1 | tee output/logs/run_${s%%_*}.log; done
 ```
 
 Each script re-runs from the raw symlinks and the outputs of the scripts
@@ -79,6 +81,7 @@ before it; nothing is read from the archive. The survey bootstrap in `05` uses
 - `output/surface/dumping_{window}.tif`: 50 m GeoTIFFs with the rate as filed, the corrected rate, their logs relative to the citywide rate, the correction factor and the correction delta, for 2021–2025 and 2022–2023; `litter_survey.tif` is the survey on its own.
 - `output/districts/districts.csv`: one row per planning district.
 - `output/validate/table3.csv`: the plain comparison of block groups' 311 rates, as filed and corrected, with their own survey visits.
+- `output/validate_divisions/table3d.csv`: the same comparison with the city's published Litter Index 2023–25 per division, pooled and year by year.
 - `output/figures/`: `fig1` the block-group regression, `fig2` the survey's profile and the rating sigmoid, `fig2b` the cross-validation, `fig3` the three maps, `fig4_*` district zooms, `fig5` the conclusion map, `fig5b` the correction delta, `fig6` the plain comparison with the survey, `fig6b` the before / after maps of the rate and of the fit to the survey, `A1`/`A2` appendix.
 
 Coordinates are metres in EPSG:26918; map units are reports per year per

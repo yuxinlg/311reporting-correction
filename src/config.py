@@ -20,7 +20,7 @@ import pandas as pd
 # --- paths -------------------------------------------------------------------
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
-OUT = os.path.join(ROOT, "output")
+OUT = os.path.abspath(os.environ.get("PIPELINE_OUT", os.path.join(ROOT, "output")))   # PIPELINE_OUT=…: a sensitivity run writes elsewhere
 FIG = os.path.join(OUT, "figures")
 FIELDS = os.path.join(OUT, "fields")
 BETA = os.path.join(OUT, "beta")
@@ -28,6 +28,7 @@ SURVEY = os.path.join(OUT, "survey")
 SURF = os.path.join(OUT, "surface")
 DIST = os.path.join(OUT, "districts")
 VALID = os.path.join(OUT, "validate")
+VALID_DIV = os.path.join(OUT, "validate_divisions")
 CHOICES = os.path.join(OUT, "choices.json")
 
 CRS = 26918                                  # UTM zone 18N, metres
@@ -43,6 +44,12 @@ PHILLY_COUNTYFP = "101"
 SURVEY_YEARS = [2022, 2023]
 SURVEY_DEPT = "streets"
 BULK_TOKENS = {"trash_bags", "construction", "oversized", "furniture", "tires", "vehicular"}
+DROP_CITY_OMITTED = os.environ.get("DROP_CITY_OMITTED", "0") == "1"   # sensitivity run: 01 drops the visits the city omitted from its index
+
+# the city's public visit table (data/README.md): one row per visit, 2017, 2018, 2023, 2024; omit_flag = 1 marks visits the city left out
+SURVEY_PUBLIC = "Litter_Index_Surveys.csv"       # pulled by download_litter_surveys.py
+SURVEY_PUBLIC_YEARS = [2023, 2024]               # the new-method years it holds; the visit-level ground truth of 09
+SURVEY_PUBLIC_DEPT = "Streets"
 
 # --- support grid (where the city has streets: inside a CBG, near a pole) ----
 GRID_RES = 50                                # m
@@ -95,6 +102,12 @@ VALID_WINDOW = "2022-2023"                   # reports compared with the survey:
 VALID_MIN_VISITS = 10                        # a block group needs this many visits for its survey mean to count
 VALID_TOP_SHARE = 0.10                       # "dirtiest tenth" for the hit rate
 
+# --- the published Litter Index as a second test (09): the city's divisions, 2023–2025 ----
+DIV_FILE = "Litter_Index_Neighborhoods.geojson"   # downloaded from OpenDataPhilly into data/ (not a symlink)
+DIV_YEARS = [2023, 2024, 2025]                     # the new-method years in that file; 311 reports from the same years
+DIV_SCORE = "streets_division_score"               # the mean visit rating per division (division_score adds a parks part in 2023)
+DIV_N = "blocks_averaged"                          # visits behind that mean; pooling weight and the VALID_MIN_VISITS rule
+
 # --- Stage 4: the survey as the test (05): rating model -------------------------
 SPLINE_DF = 5
 RIDGE_SURV = 1.0
@@ -126,7 +139,7 @@ CMAP_DELTA = "BrBG"          # the correction in absolute terms (corrected − r
 
 
 def ensure_dirs():
-    for d in [OUT, FIG, FIELDS, BETA, SURVEY, SURF, DIST, VALID]:
+    for d in [OUT, FIG, FIELDS, BETA, SURVEY, SURF, DIST, VALID, VALID_DIV]:
         os.makedirs(d, exist_ok=True)
 
 
