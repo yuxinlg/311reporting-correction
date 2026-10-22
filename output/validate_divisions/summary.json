@@ -1,0 +1,490 @@
+{
+  "beta_hat": 0.618862164354619,
+  "beta_survey": 0.8562122728472492,
+  "window": "2023-2025",
+  "years": [
+    2023,
+    2024,
+    2025
+  ],
+  "score": "streets_division_score",
+  "n_divisions": 1699,
+  "n_reports": {
+    "2023-2025": 67386,
+    "2023": 22584,
+    "2024": 22158,
+    "2025": 22644,
+    "2023-2024": 44742
+  },
+  "min_visits": 10,
+  "public_visits": {
+    "n_visits": 58029,
+    "by_year": {
+      "2023": 35155,
+      "2024": 22874
+    },
+    "n_surveyors": 64,
+    "n_months": 11,
+    "fe_r2": 0.347175511767318,
+    "mean_rating": 1.4462596288062866
+  },
+  "visits_adj_vs_published_spearman": 0.7378542888515213,
+  "agreement": [
+    {
+      "test": "published 2023-2025",
+      "window": "2023-2025",
+      "ground_truth": "survey",
+      "version": "raw",
+      "source": "counts",
+      "n_divisions": 1699,
+      "n_reports": 67386,
+      "spearman": 0.563,
+      "top_tenth_hit": 0.2588,
+      "mean_abs_rank_error": 0.2098
+    },
+    {
+      "test": "published 2023-2025",
+      "window": "2023-2025",
+      "ground_truth": "survey",
+      "version": "corr",
+      "source": "counts",
+      "n_divisions": 1699,
+      "n_reports": 67386,
+      "spearman": 0.6243,
+      "top_tenth_hit": 0.2765,
+      "mean_abs_rank_error": 0.196
+    },
+    {
+      "test": "published 2023-2025",
+      "window": "2023-2025",
+      "ground_truth": "survey",
+      "version": "surv",
+      "source": "counts",
+      "n_divisions": 1699,
+      "n_reports": 67386,
+      "spearman": 0.6406,
+      "top_tenth_hit": 0.2765,
+      "mean_abs_rank_error": 0.192
+    },
+    {
+      "test": "published 2023-2025",
+      "window": "2023-2025",
+      "ground_truth": "survey",
+      "version": "raw",
+      "source": "kernel map (06)",
+      "n_divisions": 1699,
+      "n_reports": 67386,
+      "spearman": 0.6449,
+      "top_tenth_hit": 0.2471,
+      "mean_abs_rank_error": 0.1896
+    },
+    {
+      "test": "published 2023-2025",
+      "window": "2023-2025",
+      "ground_truth": "survey",
+      "version": "corr",
+      "source": "kernel map (06)",
+      "n_divisions": 1699,
+      "n_reports": 67386,
+      "spearman": 0.71,
+      "top_tenth_hit": 0.3235,
+      "mean_abs_rank_error": 0.1725
+    },
+    {
+      "test": "published 2023",
+      "window": "2023",
+      "ground_truth": "survey_2023",
+      "version": "raw",
+      "source": "counts",
+      "n_divisions": 1628,
+      "n_reports": 22584,
+      "spearman": 0.5632,
+      "top_tenth_hit": 0.2577,
+      "mean_abs_rank_error": 0.2099
+    },
+    {
+      "test": "published 2023",
+      "window": "2023",
+      "ground_truth": "survey_2023",
+      "version": "corr",
+      "source": "counts",
+      "n_divisions": 1628,
+      "n_reports": 22584,
+      "spearman": 0.6021,
+      "top_tenth_hit": 0.2883,
+      "mean_abs_rank_error": 0.2002
+    },
+    {
+      "test": "published 2023",
+      "window": "2023",
+      "ground_truth": "survey_2023",
+      "version": "surv",
+      "source": "counts",
+      "n_divisions": 1628,
+      "n_reports": 22584,
+      "spearman": 0.6107,
+      "top_tenth_hit": 0.2761,
+      "mean_abs_rank_error": 0.1982
+    },
+    {
+      "test": "published 2024",
+      "window": "2024",
+      "ground_truth": "survey_2024",
+      "version": "raw",
+      "source": "counts",
+      "n_divisions": 1604,
+      "n_reports": 22158,
+      "spearman": 0.3407,
+      "top_tenth_hit": 0.2562,
+      "mean_abs_rank_error": 0.2608
+    },
+    {
+      "test": "published 2024",
+      "window": "2024",
+      "ground_truth": "survey_2024",
+      "version": "corr",
+      "source": "counts",
+      "n_divisions": 1604,
+      "n_reports": 22158,
+      "spearman": 0.3734,
+      "top_tenth_hit": 0.2625,
+      "mean_abs_rank_error": 0.2533
+    },
+    {
+      "test": "published 2024",
+      "window": "2024",
+      "ground_truth": "survey_2024",
+      "version": "surv",
+      "source": "counts",
+      "n_divisions": 1604,
+      "n_reports": 22158,
+      "spearman": 0.3806,
+      "top_tenth_hit": 0.2812,
+      "mean_abs_rank_error": 0.252
+    },
+    {
+      "test": "published 2025",
+      "window": "2025",
+      "ground_truth": "survey_2025",
+      "version": "raw",
+      "source": "counts",
+      "n_divisions": 1694,
+      "n_reports": 22644,
+      "spearman": 0.3926,
+      "top_tenth_hit": 0.1598,
+      "mean_abs_rank_error": 0.2503
+    },
+    {
+      "test": "published 2025",
+      "window": "2025",
+      "ground_truth": "survey_2025",
+      "version": "corr",
+      "source": "counts",
+      "n_divisions": 1694,
+      "n_reports": 22644,
+      "spearman": 0.4447,
+      "top_tenth_hit": 0.2189,
+      "mean_abs_rank_error": 0.2374
+    },
+    {
+      "test": "published 2025",
+      "window": "2025",
+      "ground_truth": "survey_2025",
+      "version": "surv",
+      "source": "counts",
+      "n_divisions": 1694,
+      "n_reports": 22644,
+      "spearman": 0.4587,
+      "top_tenth_hit": 0.213,
+      "mean_abs_rank_error": 0.2342
+    },
+    {
+      "test": "published 2023-2024",
+      "window": "2023-2024",
+      "ground_truth": "survey_pub",
+      "version": "raw",
+      "source": "counts",
+      "n_divisions": 1696,
+      "n_reports": 44742,
+      "spearman": 0.5536,
+      "top_tenth_hit": 0.3059,
+      "mean_abs_rank_error": 0.2112
+    },
+    {
+      "test": "published 2023-2024",
+      "window": "2023-2024",
+      "ground_truth": "survey_pub",
+      "version": "corr",
+      "source": "counts",
+      "n_divisions": 1696,
+      "n_reports": 44742,
+      "spearman": 0.605,
+      "top_tenth_hit": 0.3118,
+      "mean_abs_rank_error": 0.1988
+    },
+    {
+      "test": "published 2023-2024",
+      "window": "2023-2024",
+      "ground_truth": "survey_pub",
+      "version": "surv",
+      "source": "counts",
+      "n_divisions": 1696,
+      "n_reports": 44742,
+      "spearman": 0.6171,
+      "top_tenth_hit": 0.3294,
+      "mean_abs_rank_error": 0.1963
+    },
+    {
+      "test": "visits 2023-2024, month + surveyor adjusted",
+      "window": "2023-2024",
+      "ground_truth": "visits_adj",
+      "version": "raw",
+      "source": "counts",
+      "n_divisions": 1653,
+      "n_reports": 44742,
+      "spearman": 0.5346,
+      "top_tenth_hit": 0.3273,
+      "mean_abs_rank_error": 0.218
+    },
+    {
+      "test": "visits 2023-2024, month + surveyor adjusted",
+      "window": "2023-2024",
+      "ground_truth": "visits_adj",
+      "version": "corr",
+      "source": "counts",
+      "n_divisions": 1653,
+      "n_reports": 44742,
+      "spearman": 0.57,
+      "top_tenth_hit": 0.3455,
+      "mean_abs_rank_error": 0.21
+    },
+    {
+      "test": "visits 2023-2024, month + surveyor adjusted",
+      "window": "2023-2024",
+      "ground_truth": "visits_adj",
+      "version": "surv",
+      "source": "counts",
+      "n_divisions": 1653,
+      "n_reports": 44742,
+      "spearman": 0.5754,
+      "top_tenth_hit": 0.3515,
+      "mean_abs_rank_error": 0.2087
+    },
+    {
+      "test": "visits 2023-2024, plain mean",
+      "window": "2023-2024",
+      "ground_truth": "visits_mean",
+      "version": "raw",
+      "source": "counts",
+      "n_divisions": 1653,
+      "n_reports": 44742,
+      "spearman": 0.5392,
+      "top_tenth_hit": 0.2909,
+      "mean_abs_rank_error": 0.2162
+    },
+    {
+      "test": "visits 2023-2024, plain mean",
+      "window": "2023-2024",
+      "ground_truth": "visits_mean",
+      "version": "corr",
+      "source": "counts",
+      "n_divisions": 1653,
+      "n_reports": 44742,
+      "spearman": 0.5894,
+      "top_tenth_hit": 0.2727,
+      "mean_abs_rank_error": 0.2046
+    },
+    {
+      "test": "visits 2023-2024, plain mean",
+      "window": "2023-2024",
+      "ground_truth": "visits_mean",
+      "version": "surv",
+      "source": "counts",
+      "n_divisions": 1653,
+      "n_reports": 44742,
+      "spearman": 0.6014,
+      "top_tenth_hit": 0.2788,
+      "mean_abs_rank_error": 0.202
+    }
+  ],
+  "bootstrap": [
+    {
+      "test": "published 2023-2025",
+      "window": "2023-2025",
+      "ground_truth": "survey",
+      "spearman_gain": 0.0614,
+      "spearman_gain_lo": 0.0409,
+      "spearman_gain_hi": 0.0913,
+      "share_closer": 0.5803,
+      "share_closer_lo": 0.553,
+      "share_closer_hi": 0.6175,
+      "share_further": 0.4097
+    },
+    {
+      "test": "published 2023",
+      "window": "2023",
+      "ground_truth": "survey_2023",
+      "spearman_gain": 0.0389,
+      "spearman_gain_lo": 0.0222,
+      "spearman_gain_hi": 0.0575,
+      "share_closer": 0.5559,
+      "share_closer_lo": 0.5149,
+      "share_closer_hi": 0.5878,
+      "share_further": 0.4287
+    },
+    {
+      "test": "published 2024",
+      "window": "2024",
+      "ground_truth": "survey_2024",
+      "spearman_gain": 0.0328,
+      "spearman_gain_lo": 0.0145,
+      "spearman_gain_hi": 0.0522,
+      "share_closer": 0.5362,
+      "share_closer_lo": 0.5054,
+      "share_closer_hi": 0.5726,
+      "share_further": 0.4489
+    },
+    {
+      "test": "published 2025",
+      "window": "2025",
+      "ground_truth": "survey_2025",
+      "spearman_gain": 0.0521,
+      "spearman_gain_lo": 0.0329,
+      "spearman_gain_hi": 0.0806,
+      "share_closer": 0.5779,
+      "share_closer_lo": 0.5388,
+      "share_closer_hi": 0.618,
+      "share_further": 0.4109
+    },
+    {
+      "test": "published 2023-2024",
+      "window": "2023-2024",
+      "ground_truth": "survey_pub",
+      "spearman_gain": 0.0514,
+      "spearman_gain_lo": 0.0335,
+      "spearman_gain_hi": 0.0749,
+      "share_closer": 0.5802,
+      "share_closer_lo": 0.5443,
+      "share_closer_hi": 0.6074,
+      "share_further": 0.4045
+    },
+    {
+      "test": "visits 2023-2024, month + surveyor adjusted",
+      "window": "2023-2024",
+      "ground_truth": "visits_adj",
+      "spearman_gain": 0.0354,
+      "spearman_gain_lo": 0.0174,
+      "spearman_gain_hi": 0.0611,
+      "share_closer": 0.5402,
+      "share_closer_lo": 0.5029,
+      "share_closer_hi": 0.5786,
+      "share_further": 0.4477
+    },
+    {
+      "test": "visits 2023-2024, plain mean",
+      "window": "2023-2024",
+      "ground_truth": "visits_mean",
+      "spearman_gain": 0.0503,
+      "spearman_gain_lo": 0.034,
+      "spearman_gain_hi": 0.0714,
+      "share_closer": 0.5656,
+      "share_closer_lo": 0.5291,
+      "share_closer_hi": 0.5986,
+      "share_further": 0.4229
+    }
+  ],
+  "survey_quintiles": [
+    {
+      "survey_q": 0,
+      "survey": 1.0462,
+      "raw": 0.8542,
+      "corr": 0.6515,
+      "surv": 0.5791,
+      "n": 340
+    },
+    {
+      "survey_q": 1,
+      "survey": 1.1404,
+      "raw": 1.1923,
+      "corr": 0.9769,
+      "surv": 0.8911,
+      "n": 340
+    },
+    {
+      "survey_q": 2,
+      "survey": 1.2664,
+      "raw": 1.9548,
+      "corr": 1.7632,
+      "surv": 1.6792,
+      "n": 339
+    },
+    {
+      "survey_q": 3,
+      "survey": 1.4305,
+      "raw": 2.6322,
+      "corr": 2.5835,
+      "surv": 2.5282,
+      "n": 340
+    },
+    {
+      "survey_q": 4,
+      "survey": 1.7034,
+      "raw": 3.4443,
+      "corr": 3.6572,
+      "surv": 3.7193,
+      "n": 340
+    }
+  ],
+  "wR_tertiles": [
+    {
+      "wR_t": "quiet",
+      "wbar": -0.4098,
+      "survey": 1.4091,
+      "raw": -0.0086,
+      "corr": 0.1885,
+      "surv": 0.2416,
+      "n": 566,
+      "pred_raw": 1.3089,
+      "pred_corr": 1.3361,
+      "pred_surv": 1.3478
+    },
+    {
+      "wR_t": "middle",
+      "wbar": 0.1678,
+      "survey": 1.3376,
+      "raw": 0.3259,
+      "corr": 0.2228,
+      "surv": 0.1533,
+      "n": 566,
+      "pred_raw": 1.3399,
+      "pred_corr": 1.3396,
+      "pred_surv": 1.3386
+    },
+    {
+      "wR_t": "chatty",
+      "wbar": 0.5908,
+      "survey": 1.2057,
+      "raw": -0.0676,
+      "corr": -0.3894,
+      "surv": -0.5405,
+      "n": 567,
+      "pred_raw": 1.3035,
+      "pred_corr": 1.2767,
+      "pred_surv": 1.2659
+    }
+  ],
+  "chatty_minus_quiet": {
+    "survey": -0.2034079601960641,
+    "raw": -0.0054554536118893715,
+    "corr": -0.05942008896856121,
+    "surv": -0.08193604409560229
+  },
+  "misfit": {
+    "mean_abs_raw": 0.16730857387782821,
+    "mean_abs_corr": 0.16025845038256148,
+    "share_closer": 0.6274278987639789,
+    "share_further": 0.3725721012360212,
+    "slope_rating_per_log_raw": 0.09246992884410428,
+    "slope_rating_per_log_corr": 0.1028195667822351
+  }
+}

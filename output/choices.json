@@ -1,0 +1,86 @@
+{
+  "HW0": 400,
+  "HW_ALT": 600,
+  "hw_reliability": [
+    {
+      "h_w": 400,
+      "sd_signal": 0.5586,
+      "sd_noise": 0.1234,
+      "reliability": 0.9512,
+      "median_n_eff": 65.7056
+    },
+    {
+      "h_w": 600,
+      "sd_signal": 0.4773,
+      "sd_noise": 0.0839,
+      "reliability": 0.9691,
+      "median_n_eff": 141.9355
+    },
+    {
+      "h_w": 800,
+      "sd_signal": 0.4214,
+      "sd_noise": 0.0638,
+      "reliability": 0.9771,
+      "median_n_eff": 245.37
+    },
+    {
+      "h_w": 1000,
+      "sd_signal": 0.3803,
+      "sd_noise": 0.0516,
+      "reliability": 0.9816,
+      "median_n_eff": 375.6947
+    }
+  ],
+  "wR_centre": {
+    "400": -0.15771765214331884,
+    "600": -0.11256296738721401
+  },
+  "wR_centroid_spearman": 0.8552893215915571,
+  "H0": 800,
+  "H_LIST": [
+    500,
+    800,
+    1200
+  ],
+  "TAU": 120,
+  "sweep_at_tau": {
+    "300": 0.3311,
+    "500": 0.3608,
+    "800": 0.375,
+    "1200": 0.3798,
+    "2000": 0.372
+  },
+  "placebo": [
+    {
+      "fe": "none",
+      "past": 0.0762,
+      "se_past": 0.0243,
+      "future": 0.1024,
+      "se_future": 0.0288,
+      "past_minus_future": -0.0262,
+      "se_diff": 0.0481,
+      "t_diff": -0.5442
+    },
+    {
+      "fe": "month + location",
+      "past": 0.018,
+      "se_past": 0.0241,
+      "future": -0.0101,
+      "se_future": 0.0232,
+      "past_minus_future": 0.0281,
+      "se_diff": 0.0327,
+      "t_diff": 0.8603
+    }
+  ],
+  "lam_bar_raw": {
+    "500": 0.0003714872777411627,
+    "800": 0.00037644824424223867,
+    "1200": 0.00037846267393093605
+  },
+  "unit_test_pass": true,
+  "beta_hat": 0.618862164354619,
+  "ci_95": [
+    0.2778269631023728,
+    0.9466507299661983
+  ]
+}

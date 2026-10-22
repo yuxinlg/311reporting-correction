@@ -1,0 +1,5 @@
+cls,n_blocks_2018,visited_2022,visited_2023,mean_2018_visited,mean_2018_not_visited
+Local,11279,0.9316,0.8894,1.7701,1.4202
+Collector,7938,0.9809,0.9308,1.8781,1.5543
+Minor Arterial,2193,0.9585,0.9571,1.8826,1.6059
+Major Arterial,2256,0.9605,0.9149,1.8231,1.5355

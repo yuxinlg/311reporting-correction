@@ -1,0 +1,205 @@
+{
+  "beta_hat": 0.618862164354619,
+  "beta_survey": 0.8562122728472492,
+  "window": "2022-2023",
+  "n_cbg": 1290,
+  "min_visits": 10,
+  "agreement": [
+    {
+      "window": "2021-2025",
+      "version": "raw",
+      "source": "counts",
+      "spearman": 0.5222,
+      "top_tenth_hit": 0.2946,
+      "mean_abs_rank_error": 0.22
+    },
+    {
+      "window": "2021-2025",
+      "version": "corr",
+      "source": "counts",
+      "spearman": 0.5588,
+      "top_tenth_hit": 0.3101,
+      "mean_abs_rank_error": 0.2136
+    },
+    {
+      "window": "2021-2025",
+      "version": "surv",
+      "source": "counts",
+      "spearman": 0.5642,
+      "top_tenth_hit": 0.3333,
+      "mean_abs_rank_error": 0.2132
+    },
+    {
+      "window": "2021-2025",
+      "version": "raw",
+      "source": "kernel map (06)",
+      "spearman": 0.5837,
+      "top_tenth_hit": 0.3101,
+      "mean_abs_rank_error": 0.2051
+    },
+    {
+      "window": "2021-2025",
+      "version": "corr",
+      "source": "kernel map (06)",
+      "spearman": 0.6119,
+      "top_tenth_hit": 0.3721,
+      "mean_abs_rank_error": 0.1994
+    },
+    {
+      "window": "2022-2023",
+      "version": "raw",
+      "source": "counts",
+      "spearman": 0.51,
+      "top_tenth_hit": 0.2791,
+      "mean_abs_rank_error": 0.2223
+    },
+    {
+      "window": "2022-2023",
+      "version": "corr",
+      "source": "counts",
+      "spearman": 0.5419,
+      "top_tenth_hit": 0.3023,
+      "mean_abs_rank_error": 0.2172
+    },
+    {
+      "window": "2022-2023",
+      "version": "surv",
+      "source": "counts",
+      "spearman": 0.5456,
+      "top_tenth_hit": 0.3101,
+      "mean_abs_rank_error": 0.2175
+    },
+    {
+      "window": "2022-2023",
+      "version": "raw",
+      "source": "kernel map (06)",
+      "spearman": 0.5808,
+      "top_tenth_hit": 0.2946,
+      "mean_abs_rank_error": 0.2044
+    },
+    {
+      "window": "2022-2023",
+      "version": "corr",
+      "source": "kernel map (06)",
+      "spearman": 0.6081,
+      "top_tenth_hit": 0.3488,
+      "mean_abs_rank_error": 0.1992
+    }
+  ],
+  "bootstrap": [
+    {
+      "window": "2021-2025",
+      "spearman_gain": 0.0366,
+      "spearman_gain_lo": 0.0173,
+      "spearman_gain_hi": 0.0617,
+      "share_closer": 0.5016,
+      "share_closer_lo": 0.4743,
+      "share_closer_hi": 0.5554,
+      "share_further": 0.4876
+    },
+    {
+      "window": "2022-2023",
+      "spearman_gain": 0.0319,
+      "spearman_gain_lo": 0.013,
+      "spearman_gain_hi": 0.0539,
+      "share_closer": 0.5008,
+      "share_closer_lo": 0.4649,
+      "share_closer_hi": 0.5462,
+      "share_further": 0.4876
+    }
+  ],
+  "survey_quintiles": [
+    {
+      "survey_q": 0,
+      "survey": 1.1779,
+      "raw": 1.0172,
+      "corr": 0.8744,
+      "surv": 0.8143,
+      "n": 258
+    },
+    {
+      "survey_q": 1,
+      "survey": 1.3975,
+      "raw": 1.2201,
+      "corr": 1.0057,
+      "surv": 0.9232,
+      "n": 258
+    },
+    {
+      "survey_q": 2,
+      "survey": 1.5302,
+      "raw": 1.7507,
+      "corr": 1.52,
+      "surv": 1.4182,
+      "n": 258
+    },
+    {
+      "survey_q": 3,
+      "survey": 1.6842,
+      "raw": 2.5172,
+      "corr": 2.4858,
+      "surv": 2.4477,
+      "n": 258
+    },
+    {
+      "survey_q": 4,
+      "survey": 1.9299,
+      "raw": 3.5592,
+      "corr": 3.7546,
+      "surv": 3.8124,
+      "n": 258
+    }
+  ],
+  "wR_tertiles": [
+    {
+      "wR_t": "quiet",
+      "wbar": -0.4699,
+      "survey": 1.5741,
+      "raw": -0.208,
+      "corr": 0.0096,
+      "surv": 0.0679,
+      "n": 430,
+      "pred_raw": 1.5239,
+      "pred_corr": 1.5503,
+      "pred_surv": 1.5614
+    },
+    {
+      "wR_t": "middle",
+      "wbar": 0.1495,
+      "survey": 1.5868,
+      "raw": 0.2279,
+      "corr": 0.1302,
+      "surv": 0.0605,
+      "n": 430,
+      "pred_raw": 1.5642,
+      "pred_corr": 1.5622,
+      "pred_surv": 1.5607
+    },
+    {
+      "wR_t": "chatty",
+      "wbar": 0.5569,
+      "survey": 1.4709,
+      "raw": 0.0058,
+      "corr": -0.3062,
+      "surv": -0.4562,
+      "n": 430,
+      "pred_raw": 1.5437,
+      "pred_corr": 1.5194,
+      "pred_surv": 1.5098
+    }
+  ],
+  "chatty_minus_quiet": {
+    "survey": -0.10318996170659078,
+    "raw": 0.019765751193031145,
+    "corr": -0.030978840986555012,
+    "surv": -0.05155943934552498
+  },
+  "misfit": {
+    "mean_abs_raw": 0.18583238482874,
+    "mean_abs_corr": 0.1826624613115206,
+    "share_closer": 0.5550387596899224,
+    "share_further": 0.4449612403100775,
+    "slope_rating_per_log_raw": 0.09244681899996236,
+    "slope_rating_per_log_corr": 0.09809618598813352
+  }
+}

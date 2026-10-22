@@ -13,8 +13,7 @@ data/*
 311_dumping_plan_lessons.md
 notes/GUIDE_zh.md
 
-# --- model / pipeline outputs ----------------------------------------------
-output/
+# --- model / pipeline outputs: see the block at the end of this file --------
 outputs/
 results/
 figures/
@@ -116,3 +115,16 @@ Icon?
 .idea/
 *.swp
 *~
+
+# --- pipeline outputs: the results are tracked (tables, figures, maps), the
+# intermediates are not (parquet, npz, logs) and neither is the archive.
+# Kept last so these un-ignores win over the artifact patterns above.
+output/**
+!output/**/
+!output/**/*.csv
+!output/**/*.json
+!output/**/*.md
+!output/**/*.png
+!output/**/*.tif
+output/archive/
+output/**/logs/

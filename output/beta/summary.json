@@ -1,0 +1,97 @@
+{
+  "beta_hat": 0.618862164354619,
+  "ci_95": [
+    0.2778269631023728,
+    0.9466507299661983
+  ],
+  "se_robust": 0.10733124340992822,
+  "sd_wbar": 0.5296235463735249,
+  "beta_x_sd": 0.3277639742018886,
+  "n_cbg": 1335,
+  "n_reports": 116751,
+  "window": "2021-2025",
+  "spread_min": -0.024970942545273545,
+  "spread_max": 1.056799563969487,
+  "torus": {
+    "n": 50,
+    "deviance_gain_real": 16410.403612800088,
+    "null_mean": 1530.377530905133,
+    "null_q95": 7524.67939115405,
+    "null_max": 8779.256422259408,
+    "p": 0.0
+  },
+  "table1": [
+    {
+      "spec": "main",
+      "beta": 0.6189,
+      "se_robust": 0.1073,
+      "ci_lo": 0.2778,
+      "ci_hi": 0.9467,
+      "boot_sd": 0.1715,
+      "beta_x_sd": 0.3278,
+      "gamma": NaN,
+      "deviance": 189648.6254,
+      "a": -5.2045
+    },
+    {
+      "spec": "window",
+      "beta": 0.6467,
+      "se_robust": 0.109,
+      "ci_lo": 0.2906,
+      "ci_hi": 0.983,
+      "boot_sd": 0.1757,
+      "beta_x_sd": 0.3425,
+      "gamma": NaN,
+      "deviance": 78466.5753,
+      "a": NaN
+    },
+    {
+      "spec": "hw_alt",
+      "beta": 0.5919,
+      "se_robust": 0.1173,
+      "ci_lo": 0.2103,
+      "ci_hi": 0.9777,
+      "boot_sd": 0.1951,
+      "beta_x_sd": 0.2928,
+      "gamma": NaN,
+      "deviance": 191702.7017,
+      "a": NaN
+    },
+    {
+      "spec": "log_rate",
+      "beta": 0.8519,
+      "se_robust": 0.104,
+      "ci_lo": 0.3752,
+      "ci_hi": 1.3035,
+      "boot_sd": 0.242,
+      "beta_x_sd": 0.4512,
+      "gamma": NaN,
+      "deviance": NaN,
+      "a": NaN
+    },
+    {
+      "spec": "elasticity",
+      "beta": -0.025,
+      "se_robust": 0.0585,
+      "ci_lo": -0.319,
+      "ci_hi": 0.2511,
+      "boot_sd": 0.1474,
+      "beta_x_sd": -0.0132,
+      "gamma": 0.1048,
+      "deviance": 100741.0716,
+      "a": NaN
+    },
+    {
+      "spec": "within",
+      "beta": 1.0568,
+      "se_robust": 0.0795,
+      "ci_lo": 0.7991,
+      "ci_hi": 1.2917,
+      "boot_sd": 0.1331,
+      "beta_x_sd": 0.5597,
+      "gamma": NaN,
+      "deviance": 92189.0093,
+      "a": NaN
+    }
+  ]
+}
